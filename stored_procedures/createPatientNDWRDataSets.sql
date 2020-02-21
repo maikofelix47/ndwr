@@ -1,4 +1,4 @@
-CREATE  PROCEDURE `createPatientNDWRDataSets`(
+CREATE DEFINER=`akwatuha`@`%` PROCEDURE `createPatientNDWRDataSets`(
   IN selectedMFLCode int(11),
   IN selectedFacility varchar(250),
   IN selectedPatient int(11)
@@ -297,61 +297,67 @@ DELETE FROM ndwr.ndwr_visit_0;
    
                      
                       
-                       insert into ndwr_all_patient_visits(PatientID,PatientPK,FacilityID,FacilityName,SiteCode,VisitID,VisitDate,SERVICE,VisitType,WHOStage,WABStage,Pregnant,LMP,EDD,Height,BP,OI,OIDate,Adherence,AdherenceCategory,FamilyPlanningMethod,PwP,GestationAge,NextAppointmentDate,SubstitutionFirstlineReg,Emr,Project,DateImported,Ident,SecondlineRegimenChangeDate,SubstitutionSecondlineRegimenDate,SubstitutionFirstlineRegimenDate,Weight) (
+                       replace into ndwr_all_patient_visits_extract (
                        SELECT distinct
+						   e.person_id AS PatientPK,
                            e.person_id AS PatientID,
-                           e.person_id AS PatientPK,
-   						@siteCode  as FacilityID,
-                           @facilityName AS FacilityName,
-   					    @siteCode AS SiteCode,
+   						   @siteCode  as FacilityID,
+                           @siteCode AS SiteCode,
+						   'AMRS' AS Emr,
+						   'Ampath Plus' AS Project,
+                            @facilityName AS FacilityName,
                            e.encounter_id AS VisitID,
                            e.encounter_datetime AS VisitDate,
-                           'HIV Care' as SERVICE,
-                           if(cn.name is not null,cn.name,'Unknownknown') as Visittype,
+                           'HIV Care' as Service,
+                           if(cn.name is not null,cn.name,'Unknownknown') as VisitType,
                            e.cur_who_stage AS WHOStage,
                            null  AS WABStage,
                            e.pregnant AS Pregnant,
                            e.LMP AS LMP,
                            e.edd as EDD,
-                           v.Height AS Height,                        
+                           v.Height AS Height,
+						   v.Weight AS Weight,
                            v.bp AS BP,
                            o.OI AS OI,
                            o.OIDate AS OIDate,
                            e.cur_arv_adherence AS Adherence,
                            e.cur_arv_adherence AS AdherenceCategory,
+                           null as SubstitutionFirstlineRegimenDate,
+                           null as SubstitutionFirstlineRegimenReason,
+                           null as SubstitutionSecondlineRegimenDate,
+                           null as SubstitutionSecondlineRegimenReason,
+						   null as SecondlineRegimenChangeDate,
+						   null as SecondlineRegimenChangeReason,
                            e.family_planning AS FamilyPlanningMethod,
                            e.pwp AS PwP,
                            e.gestation AS GestationAge,
-                           e.rtc_date as NextAppointmentDate,
-                           null as SubstitutionFirstlineReg,
-                           'AMRS' AS Emr,
-                           'Ampath Plus' AS Project,
-                           null AS DateImported,
-                           null AS Ident,
-                           null as SecondlineRegimenChangeDate,
-                           null as SubstitutionSecondlineRegimenDate,
-                           null as SubstitutionFirstlineRegimenDate,
-                           v.Weight AS Weight
+						   case
+                             when e.rtc_date IS NOT NULL then e.rtc_date
+                             ELSE DATE_ADD(e.encounter_datetime, INTERVAL 21 DAY)
+                           end as NextAppointmentDate,
+                           null as DifferentiatedCare,
+                           null as KeyPopulationType,
+                           'General Population' as PopulationType,
+                           null as StabilityAssessment
+					
                            FROM      ndwr.ndwr_visit_0 e left join ndwr_vitals v on v.person_id=e.person_id and v.encounter_datetime=e.encounter_datetime
                            left join ndwroi  o  on o.person_id=e.person_id and o.OIDate=e.encounter_datetime
 						   left join amrs.concept_name cn on cn.concept_id=e.scheduled_visit and cn.concept_name_type='FULLY_SPECIFIED' and voided<>1
                        ); 
              
-               insert into ndwr.ndwr_patient_status(
-  			 PatientID,
-  			 PatientPK,FacilityName,SiteCode,ExitDescription,ExitReason,ExitDate,Emr,Project,Ident,DateImported,FacilityId)(
+			replace into ndwr.ndwr_patient_status_extract(
                 select
-                   t1.PatientID,
                    t1.PatientPK,
-                   t1.FacilityName,
-   				 t1.SiteCode,
-  				 if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitDescription,
-                   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitReason,
-                   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null)ExitDate,
-                   t1.Emr,
+                   t1.PatientID,
+                   t1.FacilityId,
+                   t1.SiteCode,
+				   t1.Emr,
                    t1.Project,
-                   null as Ident,
-  				 null as DateImported,t1.FacilityId
+                   t1.FacilityName,
+  				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitDescription,
+				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null) as ExitDate,
+                   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitReason
+                 
                 from ndwr.ndwr_all_patients t1 where t1.StatusAtCCC in('dead','ltfu','transfer_out')
   			  and t1.PatientID=@selectedPatient 
                );

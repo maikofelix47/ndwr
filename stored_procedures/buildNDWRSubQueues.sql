@@ -1,4 +1,4 @@
-CREATE  PROCEDURE `buildNDWRSubQueues`()
+CREATE PROCEDURE `buildNDWRSubQueues`()
 BEGIN
  DECLARE queueSize INT DEFAULT 0;
  DECLARE selectMflCode INT DEFAULT 0;
@@ -24,11 +24,11 @@ BEGIN
  
               delete from ndwr.ndwr_patient_labs;
               delete from ndwr.ndwr_art_patients;
-              delete from ndwr.ndwr_patient_status;
-              delete from ndwr_all_patient_visits;
+              delete from ndwr_all_patient_visits_extract;
               delete from ndwr_all_patients;
+              delete from ndwr_all_patients_extract;
               delete from ndwr.ndwr_patient_pharmacy;
-              delete from ndwr.ndwr_patient_status;
+              delete from ndwr.ndwr_patient_status_extract;
               delete from ndwr.ndwr_vitals; 
               delete FROM ndwr.patient_base_line;
               delete FROM ndwr.ndwr_base_line;

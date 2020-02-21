@@ -1,0 +1,17 @@
+CREATE TABLE `ndwr`.`ndwr_patient_pharmacy` (
+  `PatientPK` INT NOT NULL,
+  `PatientID` INT NOT NULL,
+  `FacilityID` INT NULL,
+  `SiteCode` INT NULL,
+  `Emr` VARCHAR(50) NULL,
+  `Project` VARCHAR(50) NULL,
+  `VisitID` INT NULL,
+  `Drug` VARCHAR(100) NULL,
+  `Provider` VARCHAR(50) NULL,
+  `DispenseDate` DATETIME NULL,
+  `Duration` INT NULL,
+  `ExpectedReturn` DATETIME NULL,
+  `TreatmentType` VARCHAR(100) NULL,
+  `RegimenLine` VARCHAR(200) NULL,
+  `PeriodTaken` VARCHAR(100) NULL,
+  `ProphylaxisType` VARCHAR(100) NULL);

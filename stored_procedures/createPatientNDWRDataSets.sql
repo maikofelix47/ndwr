@@ -7,8 +7,16 @@ CREATE  PROCEDURE `createPatientNDWRDataSets`(
 BEGIN
                  DECLARE selectedPeriod date; 
                  DECLARE selectedMFLCode INT Default 0;
-                 Select reporting_period from ndwr.mfl_period limit 1 into selectedPeriod;
- 		        Select mfl_code from ndwr.mfl_period limit 1 into selectedMFLCode;
+SELECT 
+    reporting_period
+FROM
+    ndwr.mfl_period
+LIMIT 1 INTO selectedPeriod;
+ 		SELECT 
+    mfl_code
+FROM
+    ndwr.mfl_period
+LIMIT 1 INTO selectedMFLCode;
  
                           
  						  set @selectedPatient:=selectedPatient;
@@ -16,7 +24,7 @@ BEGIN
                            set @siteCode:= @selectedMFLCode; 
                            set @selectedPeriod:= selectedPeriod;
                            set @selectedMFLCode:= selectedMFLCode;
-                              delete from  ndwr_base_line_0;
+DELETE FROM ndwr_base_line_0;
    							insert into ndwr_base_line_0						
    							SELECT 
    							distinct
@@ -88,7 +96,7 @@ BEGIN
      
                           call buildNDWRPatientBaseline(@selectedMFLCode,selectedFacility,@selectedPatient);
   						
-                          delete from ndwr.ndwr_visit_0;
+DELETE FROM ndwr.ndwr_visit_0;
   						
    						insert into ndwr.ndwr_visit_0 							
    							 SELECT
@@ -116,7 +124,7 @@ BEGIN
   								 
    							;						
    							
-   							delete from ndwr.ndwroi;
+   							DELETE FROM ndwr.ndwroi;
    							insert into ndwr.ndwroi
    								select t1.person_id,
    								if(obs regexp "!!6042=" ,
@@ -145,24 +153,23 @@ BEGIN
    							#Pharmacy
                                
                                replace into ndwr.ndwr_patient_pharmacy(
-                               SELECT  distinct			
-                               person_id as PatientID,
+                               SELECT  distinct	
                                person_id as PatientPK,
-                               @facilityName AS FacilityName,
+                               person_id as PatientID,
+                               @siteCode as FacilityID,
                                @siteCode AS SiteCode,
-                               encounter_id as VisitID,
+							   'AMRS' as Emr,
+							   'Ampath Plus' as Project,
+							   encounter_id as VisitID,
                                etl.get_arv_names(cur_arv_meds) as Drug,
+                               'Government' as Provider,
                                encounter_datetime as DispenseDate,
-                               'HIV Treatment' as TreatmentType,
-                               null as ProphylaxisType,
+							   DATEDIFF(rtc_date,encounter_datetime) as Duration,
                                rtc_date as ExpectedReturn,
-                               DATEDIFF(rtc_date,encounter_datetime) as Duration,
-                               DATEDIFF(rtc_date,encounter_datetime) as PeriodTaken,
-                               'AMRS' as Emr,
-                               'Ampath Plus' as Project,
-                               null as DateImported,
-                               null as Ident,
-                               @siteCode as FacilityID
+                               'HIV Treatment' as TreatmentType,
+                               null AS RegimenLine,
+							   null as PeriodTaken,
+                               null as ProphylaxisType
    							FROM
    								etl.flat_hiv_summary_v15b t1
    							WHERE 	t1.person_id =@selectedPatient
@@ -174,7 +181,7 @@ BEGIN
   							set @last_encounter_date=null;                            
   							set @rtc_date=null; 
   							
-                               insert into ndwr_all_patients (
+                  insert into ndwr_all_patients (
                                SELECT 
                                  distinct                                   
                                    t1.person_id as PatientID,
@@ -220,14 +227,72 @@ BEGIN
   							 if(t1.arv_first_regimen,etl.get_arv_names(t1.arv_first_regimen),'unknown') as arv_first_regimen,
   							 if(t1.arv_first_regimen_start_date,t1.arv_first_regimen_start_date,t1.enrollment_date) as arv_start_date,
   							 etl.get_arv_names(t1.cur_arv_meds) as cur_arv_meds,
-  							 t1.cur_arv_line_strict
-                               FROM etl.hiv_monthly_report_dataset_frozen t1 
+  							 t1.cur_arv_line_strict,
+                             null as Inschool,
+							 null as KeyPopulationType,
+							 null as Orphan,
+							 null as PatientResidentCounty,
+							 null as PatientResidentLocation,
+							 null as PatientResidentSubCounty,
+							 null as PatientResidentSubLocation,
+							 null as PatientResidentVillage,
+							 null as PatientResidentWard,
+							 null as PatientType,
+							 'GeneralPopulation' as PopulationType,
+							 null as TransferInDate
+							 FROM etl.hiv_monthly_report_dataset_frozen t1 
                                
   							 WHERE 	t1.person_id =@selectedPatient
  								and enddate=@selectedPeriod
   								and t1.location_id 
   								in (select location_id from ndwr.mfl_codes where mfl_code=@selectedMFLCode)
   								order by t1.encounter_date desc
+                               );
+                               
+					  insert into ndwr_all_patients_extract (
+                               SELECT 
+                                 distinct
+								   PatientPK,
+								   patientid AS PatientID,
+							       FacilityID,
+                                   SiteCode,
+                                   Emr,
+                                   project AS Project,
+                                   facilityname AS FacilityName,
+                                   Gender,
+                                   DOB,
+                                   RegistrationDate,
+                                   RegistrationAtCCC,
+                                   RegistrationAtPMTCT,
+                                   RegistrationAtTBClinic,
+                                   PatientSource,
+                                   Region,
+                                   District,
+                                   Village,
+                                   ContactRelation,
+  							       LastVisit, 
+                                   MaritalStatus,
+                                   EducationLevel,
+                                   DateConfirmedHIVPositive,
+                                   PreviousARTExposure,
+                                   PreviousARTStartDate,
+                                   StatusAtCCC, 
+                                   StatusAtPMTCT,
+                                   StatusAtTBClinic,
+                                   SatelliteName,
+                                   Inschool,
+                                   KeyPopulationType,
+                                   Orphan,
+                                   PatientResidentCounty,
+                                   PatientResidentLocation,
+                                   PatientResidentSubCounty,
+                                   PatientResidentSubLocation,
+                                   PatientResidentVillage,
+                                   PatientResidentWard,
+                                   PatientType,
+                                   PopulationType,
+                                   TransferInDate
+                               FROM ndwr.ndwr_all_patients 
                                );
    
                      

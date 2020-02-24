@@ -1,4 +1,4 @@
-CREATE PROCEDURE `buildNDWRSubQueues`()
+CREATE DEFINER=`akwatuha`@`%` PROCEDURE `buildNDWRSubQueues`()
 BEGIN
  DECLARE queueSize INT DEFAULT 0;
  DECLARE selectMflCode INT DEFAULT 0;
@@ -22,7 +22,7 @@ BEGIN
              
               # Clear data for the previous facility loaded
  
-              delete from ndwr.ndwr_patient_labs;
+              delete from ndwr.ndwr_patient_labs_extract;
               delete from ndwr.ndwr_art_patients;
               delete from ndwr_all_patient_visits_extract;
               delete from ndwr_all_patients;

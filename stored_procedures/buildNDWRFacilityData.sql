@@ -18,7 +18,7 @@ BEGIN
                              
  			 );
  			# clean tables before processing 
-              delete from ndwr.ndwr_patient_labs;
+              delete from ndwr.ndwr_patient_labs_extract;
               delete from ndwr.ndwr_art_patients;
               delete from ndwr.ndwr_patient_status;
               delete from ndwr_all_patient_visits_extract;

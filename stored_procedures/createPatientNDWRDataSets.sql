@@ -417,25 +417,24 @@ DELETE FROM ndwr.ndwr_visit_0;
                t1.FacilityID
                FROM ndwr.ndwr_all_patients t1 where patientid=@selectedPatient;
   			 
-             insert into ndwr.ndwr_patient_labs(PatientID,PatientPK,FacilityID,FacilityName,SiteCode,SatelliteName,OrderedbyDate,ReportedbyDate,VisitID,TestName,TestResult,BaselineTest,EnrollmentTest,Emr,Project,Ident,DateImported)
+             replace into ndwr.ndwr_patient_labs_extract
                    (SELECT 
-                       t.person_id AS PatientID,
                        t.person_id AS PatientPK,
+                       t.person_id AS PatientID,
                        @siteCode AS FacilityID,
+                       @siteCode AS SiteCode,
+					   'AMRS' AS Emr,
+					   'Ampath Plus' AS Project,
                        @facilityName AS FacilityName,
-   					@siteCode AS SiteCode,
                        null AS SatelliteName,
+                       t.VisitID,
                        t.test_datetime as OrderedbyDate,
                        t.test_datetime as ReportedbyDate,
-                       t.VisitID,
                        t.TestName,
-                       t.TestResult,
-                       null AS BaselineTest,
-                       null AS EnrollmentTest,
-                       'AMRS' AS Emr,
-                       'Ampath Plus' AS Project,
-                       null AS Ident,
-                       null AS DateImported
+					   null AS EnrollmentTest,
+					   t.TestResult,
+                       t.TestName as Reason
+                      
                            
                    FROM
                        (SELECT 

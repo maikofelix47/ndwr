@@ -38,8 +38,9 @@ BEGIN
               delete FROM ndwr.patient_base_line;
               delete FROM ndwr.ndwr_base_line;
               delete FROM ndwr.ndwr_patient_baselines_extract;
- 			 delete from base_temp_1;
- 			 delete from progress;
+			  delete FROM ndwr.ndwr_patient_adverse_events;
+ 			  delete from base_temp_1;
+ 			  delete from progress;
  
  
  replace into ndwr.ndwr_baseline_queue 

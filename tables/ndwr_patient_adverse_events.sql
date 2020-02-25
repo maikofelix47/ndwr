@@ -1,0 +1,17 @@
+CREATE TABLE `ndwr`.`ndwr_patient_adverse_events` (
+  `PatientPK` INT NOT NULL,
+  `PatientID` INT NULL,
+  `FacilityID` INT NOT NULL,
+  `SiteCode` VARCHAR(250) NOT NULL,
+  `EMR` VARCHAR(50) NULL,
+  `Project` VARCHAR(50) NULL,
+  `AdverseEvent` VARCHAR(250) NULL,
+  `AdverseEventStartDate` DATETIME NULL,
+  `AdverseEventEndDate` DATETIME NULL,
+  `Severity` VARCHAR(50) NULL,
+  `VisitDate` DATETIME NULL,
+  `AdverseEventActionTaken` VARCHAR(250) NULL,
+  `AdverseEventClinicalOutcome` VARCHAR(250) NULL,
+  `AdverseEventIsPregnant` VARCHAR(50) NULL,
+  `AdverseEventCause` VARCHAR(250) NULL,
+  `AdverseEventRegimen` VARCHAR(250) NULL);

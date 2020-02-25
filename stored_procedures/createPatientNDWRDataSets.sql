@@ -1,4 +1,5 @@
-CREATE DEFINER=`akwatuha`@`%` PROCEDURE `createPatientNDWRDataSets`(
+DELIMITER $$
+CREATE  PROCEDURE `createPatientNDWRDataSets`(
   IN selectedMFLCode int(11),
   IN selectedFacility varchar(250),
   IN selectedPatient int(11)
@@ -365,57 +366,49 @@ DELETE FROM ndwr.ndwr_visit_0;
                # ART ndwr_patient_status
   			 set @cur_arv_meds=null;
   			 set @cur_arv_line_strict=null;
-  			 insert into ndwr_art_patients           
+  			 insert into ndwr.ndwr_patient_art_extract(           
                select  distinct
-               t1.lastVisit as encounter_date,
-               t1.PatientID,
                t1.PatientPK,
-               t1.DOB as DOB,
-               t1.arv_first_regimen_start_date as arv_first_regimen_start_date,
-               DATEDIFF(t1.RegistrationDate,DOB)/365.25 as AgeEnrollment,    if(sign(DATEDIFF(t1.arv_first_regimen_start_date,DOB)/365.25)=-1,DATEDIFF(t1.RegistrationDate,DOB)/365.25,
-  			 DATEDIFF(t1.arv_first_regimen_start_date,t1.DOB)/365.25) as AgeARTStart,
-                   DATEDIFF(t1.lastVisit,t1.DOB)/365.25 as AgeLastVisit,
+               t1.PatientID,
+               t1.FacilityID,
                t1.SiteCode,
+               t1.Emr,
+			   t1.Project,
                t1.FacilityName,
+               t1.DOB as DOB,
+			   DATEDIFF(t1.RegistrationDate,DOB)/365.25 as AgeEnrollment,
+               if(sign(DATEDIFF(t1.arv_first_regimen_start_date,DOB)/365.25)=-1,DATEDIFF(t1.RegistrationDate,DOB)/365.25, DATEDIFF(t1.arv_first_regimen_start_date,t1.DOB)/365.25) as AgeARTStart,
+			   DATEDIFF(t1.lastVisit,t1.DOB)/365.25 as AgeLastVisit,
                t1.RegistrationDate,
                null as PatientSource,
                t1.gender as Gender,
                t1.arv_first_regimen_start_date as StartARTDate,
-               t1.arv_first_regimen_start_date as PreviousARTStartDate,
+			   t1.arv_first_regimen_start_date as PreviousARTStartDate,
                etl.get_arv_names(t1.arv_first_regimen) as PreviousARTRegimen,
                t1.arv_start_date as StartARTAtThisFacility,
-                t1.arv_first_regimen as StartRegimen,
-  			 case
+			   t1.arv_first_regimen as StartRegimen,
+               case
    								when  @cur_arv_line_strict is null 
   								then @cur_arv_line_strict := t1.cur_arv_line_strict
    								else @cur_arv_line_strict 
    			 end as StartRegimenLine,
-               t1.lastVisit as LastARTDate,			 
-  			 case
-   								when  @cur_arv_meds is null then @cur_arv_meds := t1.cur_arv_meds
-   								else @cur_arv_meds 
+             t1.lastVisit as LastARTDate,
+             case
+					when  @cur_arv_meds is null then @cur_arv_meds := t1.cur_arv_meds
+					else @cur_arv_meds 
    			 end as LastRegimen,
-  			 case
-   								when  @cur_arv_line_strict is null then @cur_arv_line_strict := t1.cur_arv_line_strict
-   								else @cur_arv_line_strict
+             case
+					when  @cur_arv_line_strict is null then @cur_arv_line_strict := t1.cur_arv_line_strict
+					else @cur_arv_line_strict
    			 end as LastRegimenLine,
-               DATEDIFF(t1.rtc_date,t1.lastVisit) as Duration,
-               t1.rtc_date as ExpectedReturn,
-               1 as Provider,
-               t1.LastVisit,
-               1 as encounter_type,
-               t1.StatusAtCCC as status,
-               if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitReason,
-               if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null)ExitDate,
-               t1.Emr,
-               t1.Project,
-               null as Ident,
-               null as PreviousARTRegimen_Orig,
-               null as StartRegimen_Orig,
-               null as LastRegimen_Orig,
-               null as DateImported,
-               t1.FacilityID
-               FROM ndwr.ndwr_all_patients t1 where patientid=@selectedPatient;
+             DATEDIFF(t1.rtc_date,t1.lastVisit) as Duration,
+			 t1.rtc_date as ExpectedReturn,
+             'Government' as Provider,
+             t1.LastVisit,
+			 if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitReason,
+			 if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null) as ExitDate
+               
+               FROM ndwr.ndwr_all_patients t1 where patientid=@selectedPatient);
   			 
              replace into ndwr.ndwr_patient_labs_extract
                    (SELECT 
@@ -499,4 +492,5 @@ DELETE FROM ndwr.ndwr_visit_0;
                            
                            ) t);         
                                          
-   END
+END$$
+DELIMITER ;

@@ -1,4 +1,9 @@
-CREATE DEFINER=`akwatuha`@`%` PROCEDURE `buildNDWRSubQueues`()
+USE `ndwr`;
+DROP procedure IF EXISTS `buildNDWRSubQueues`;
+
+DELIMITER $$
+USE `ndwr`$$
+CREATE DEFINER=`fmaiko`@`%` PROCEDURE `buildNDWRSubQueues`()
 BEGIN
  DECLARE queueSize INT DEFAULT 0;
  DECLARE selectMflCode INT DEFAULT 0;
@@ -23,7 +28,7 @@ BEGIN
               # Clear data for the previous facility loaded
  
               delete from ndwr.ndwr_patient_labs_extract;
-              delete from ndwr.ndwr_art_patients;
+              delete from ndwr.ndwr_patient_art_extract;
               delete from ndwr_all_patient_visits_extract;
               delete from ndwr_all_patients;
               delete from ndwr_all_patients_extract;
@@ -32,6 +37,7 @@ BEGIN
               delete from ndwr.ndwr_vitals; 
               delete FROM ndwr.patient_base_line;
               delete FROM ndwr.ndwr_base_line;
+              delete FROM ndwr.ndwr_patient_baselines_extract;
  			 delete from base_temp_1;
  			 delete from progress;
  
@@ -75,4 +81,7 @@ BEGIN
  replace into ndwr_baseline_queue_2  SELECT person_id from ndwr_baseline_queue limit queueSize;
  delete from ndwr_baseline_queue where person_id in(Select person_id from ndwr_baseline_queue_2);
  
-  END
+  END$$
+
+DELIMITER ;
+

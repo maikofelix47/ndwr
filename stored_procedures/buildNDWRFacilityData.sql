@@ -1,4 +1,9 @@
-CREATE DEFINER=`akwatuha`@`%` PROCEDURE `buildNDWRFacilityData`()
+USE `ndwr`;
+DROP procedure IF EXISTS `buildNDWRFacilityData`;
+
+DELIMITER $$
+USE `ndwr`$$
+CREATE DEFINER=`fmaiko`@`%` PROCEDURE `buildNDWRFacilityData`()
 BEGIN
    DECLARE n INT DEFAULT 0;
           DECLARE i INT DEFAULT 0;
@@ -19,7 +24,7 @@ BEGIN
  			 );
  			# clean tables before processing 
               delete from ndwr.ndwr_patient_labs_extract;
-              delete from ndwr.ndwr_art_patients;
+              delete from ndwr.ndwr_patient_art_extract;
               delete from ndwr.ndwr_patient_status;
               delete from ndwr_all_patient_visits_extract;
               delete from ndwr_all_patients_extract;
@@ -29,6 +34,7 @@ BEGIN
               delete from ndwr.ndwr_vitals; 
               delete FROM ndwr.patient_base_line;
               delete FROM ndwr.ndwr_base_line;
+			  delete FROM ndwr.ndwr_patient_baselines_extract;
  			 delete from base_temp_1;
  			 delete from progress;
  			 SELECT count(*) from ndwr.ndwr_baseline_queue  INTO n;
@@ -47,4 +53,7 @@ BEGIN
             SET i = i + 1;
    end while; 
    delete from ndwr.ndwr_baseline_queue;             
-  END
+  END$$
+
+DELIMITER ;
+

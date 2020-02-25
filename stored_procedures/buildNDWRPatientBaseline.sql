@@ -1,4 +1,4 @@
-CREATE PROCEDURE `buildNDWRPatientBaseline`(
+CREATE DEFINER=`fmaiko`@`%` PROCEDURE `buildNDWRPatientBaseline`(
 IN selectedMFLCode INT,
 IN selectedFacility varchar(200),
 IN selectedPatient INT)
@@ -386,5 +386,40 @@ BEGIN
                          if(lastCd4_date,lastCd4_date,v_l_date_after_12month_arv) as VisitDate,
                          @siteCode as FacilityID
                                  from patient_base_line where person_id=selectedPatient;
- 
+                                 
+				#copy data to patient_baseline_extract
+                replace into ndwr.ndwr_patient_baselines_extract (
+                  select 
+                     PatientPK,
+                     PatientID,
+                     SiteCode as FacilityId,
+                     SiteCode,
+                     'AMRS' as EMR,
+                     'Ampath' as Project,
+					 bCD4,
+                     bCD4Date,
+                     null as bWAB,
+                     null as bWABDate,
+                     bWHO,
+                     bWHODate,
+                     null as eWAB,
+                     null as eWABDate,
+					 eCD4,
+					 eCD4Date,
+                     eWHO,
+				     eWHODate,
+                     lastWHO,
+					 lastWHODate,
+                     lastCD4,
+					 lastCD4Date,
+                     null as lastWAB,
+                     null as lastWABDate,
+                     12MonthCD4 as m12CD4,
+                     12MonthCD4_Date as m12CD4Date,
+                     6MonthCD4 as m6CD4,
+                     6MonthCD4_Date as m6CD4Date
+				  from 
+                   ndwr.ndwr_base_line
+                );
+                                 
  END

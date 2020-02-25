@@ -1,4 +1,5 @@
-CREATE DEFINER=`fmaiko`@`%` PROCEDURE `buildNDWRPatientBaseline`(
+DELIMITER $$
+CREATE  PROCEDURE `buildNDWRPatientBaseline`(
 IN selectedMFLCode INT,
 IN selectedFacility varchar(200),
 IN selectedPatient INT)
@@ -333,7 +334,7 @@ BEGIN
  							@last_who_stage,@last_who_stage_date,@last_cd4_percent,@last_cd4_percent_date,@cd4_percent_at_arv_start,@cd4_percent_at_arv_start_date,@cd4_at_arv_start,@cd4_at_arv_start_date,@who_stage_at_arv_start,@who_stage_at_arv_start_date,@cd4_before_arv_start,@cd4_date_before_arv_start,@cur_who_stage_before_arv_start,@cur_who_stage_date_before_arv_start,@cd4_percent_before_arv_start,@cd4_percent_date_before_arv_start,@cd4_after_arv_start,@cd4_date_after_arv_start,@cd4_percent_after_arv_start,@cd4_percent_date_after_arv_start,@cur_who_stage_after_6month_arv,@cur_who_stage_date_after_6month_arv,@v_l_after_6month_arv,@v_l_date_after_6month_arv,@cd4_percent_after_6month_arv,@cd4_percent_date_after_6month_arv,@cd4_after_6month_arv,@cd4_date_after_6month_arv,@cur_who_stage_after_12month_arv,@cur_who_stage_date_after_12month_arv,@cd4_percent_after_12month_arv,@cd4_percent_date_after_12month_arv,@cd4_after_12month_arv,@cd4_date_after_12month_arv,@v_l_after_12month_arv,
  							@v_l_date_after_12month_arv);					
  							
-        replace into  ndwr.ndwr_base_line 						
+        replace into  ndwr.ndwr_base_line( 						
  							select 
                          person_id as PatientPK,
                          person_id as PatientID,
@@ -385,10 +386,10 @@ BEGIN
                          v_l_date_after_12month_arv as 12MonthVLDate,
                          if(lastCd4_date,lastCd4_date,v_l_date_after_12month_arv) as VisitDate,
                          @siteCode as FacilityID
-                                 from patient_base_line where person_id=selectedPatient;
+                                 from patient_base_line where person_id=selectedPatient);
                                  
 				#copy data to patient_baseline_extract
-                replace into ndwr.ndwr_patient_baselines_extract (
+                insert into ndwr.ndwr_patient_baselines_extract (
                   select 
                      PatientPK,
                      PatientID,
@@ -420,6 +421,8 @@ BEGIN
                      6MonthCD4_Date as m6CD4Date
 				  from 
                    ndwr.ndwr_base_line
+                   where PatientID=selectedPatient
                 );
                                  
- END
+ END$$
+DELIMITER ;

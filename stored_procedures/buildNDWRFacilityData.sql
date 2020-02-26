@@ -1,4 +1,4 @@
-CREATE DEFINER=`fmaiko`@`%` PROCEDURE `buildNDWRFacilityData`()
+CREATE  PROCEDURE `buildNDWRFacilityData`()
 BEGIN
    DECLARE n INT DEFAULT 0;
           DECLARE i INT DEFAULT 0;

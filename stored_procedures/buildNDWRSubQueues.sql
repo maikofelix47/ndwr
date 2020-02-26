@@ -3,7 +3,7 @@ DROP procedure IF EXISTS `buildNDWRSubQueues`;
 
 DELIMITER $$
 USE `ndwr`$$
-CREATE DEFINER=`fmaiko`@`%` PROCEDURE `buildNDWRSubQueues`()
+CREATE  PROCEDURE `buildNDWRSubQueues`()
 BEGIN
  DECLARE queueSize INT DEFAULT 0;
  DECLARE selectMflCode INT DEFAULT 0;

@@ -490,7 +490,30 @@ DELETE FROM ndwr.ndwr_visit_0;
                        FROM
                            etl.flat_lab_obs  t3  WHERE   t3.person_id = @selectedPatient and t3.obs REGEXP '!!856=[0-9]'
                            
-                           ) t);         
+                           ) t);  
+                           
+				replace into ndwr.ndwr_patient_adverse_events (
+                 select
+                   t1.PatientPK,
+                   t1.PatientID,
+                   t1.FacilityId,
+                   t1.SiteCode,
+				   t1.Emr as EMR,
+                   t1.Project,
+                   NULL AS AdverseEvent,
+				   NULL AS AdverseEventStartDate,
+				   NULL AS AdverseEventEndDate,
+				   NULL AS Severity,
+				   NULL AS VisitDate,
+				   NULL AS AdverseEventActionTaken,
+				   NULL AS AdverseEventClinicalOutcome,
+				   NULL AS AdverseEventIsPregnant,
+				   NULL AS AdverseEventCause,
+				   NULL AS AdverseEventRegimen
+                    
+                 FROM ndwr.ndwr_all_patients t1 where patientid=@selectedPatient
+                
+                );
                                          
 END$$
 DELIMITER ;

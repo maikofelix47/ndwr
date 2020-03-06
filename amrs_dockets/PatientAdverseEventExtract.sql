@@ -1,0 +1,17 @@
+use ndwr;
+select PatientPK,
+PatientID,
+FacilityID,
+SiteCode,
+EMR,
+Project,
+AdverseEvent,
+AdverseEventStartDate,
+AdverseEventEndDate,
+Severity,
+VisitDate,
+AdverseEventActionTaken,
+AdverseEventClinicalOutcome,
+AdverseEventIsPregnant,
+AdverseEventCause,
+AdverseEventRegimen from ndwr.ndwr_patient_adverse_events;

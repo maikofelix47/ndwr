@@ -1,6 +1,6 @@
 CREATE TABLE `ndwr`.`ndwr_all_patient_visits_extract` (
   `PatientPK` INT NOT NULL,
-  ` PatientID` INT NOT NULL,
+  `PatientID` INT NOT NULL,
   `FacilityID` INT NULL,
   `SiteCode` VARCHAR(45) NOT NULL,
   `Emr` VARCHAR(50) NULL,

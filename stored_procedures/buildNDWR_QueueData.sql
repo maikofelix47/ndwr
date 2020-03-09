@@ -1,3 +1,4 @@
+DELIMITER $$
 CREATE  PROCEDURE `buildNDWR_QueueData`(IN queuNumber INT)
 BEGIN
    
@@ -54,4 +55,5 @@ LIMIT 1 INTO selectedFacility;
 		 #PREPARE s1 from @dyn_sql; 
 		 #EXECUTE s1; 
 		 #DEALLOCATE PREPARE s1;
-  END
+  END$$
+DELIMITER ;

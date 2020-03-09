@@ -1,8 +1,4 @@
-USE `ndwr`;
-DROP procedure IF EXISTS `buildNDWRSubQueues`;
-
 DELIMITER $$
-USE `ndwr`$$
 CREATE  PROCEDURE `buildNDWRSubQueues`()
 BEGIN
  DECLARE queueSize INT DEFAULT 0;
@@ -46,7 +42,7 @@ BEGIN
  replace into ndwr.ndwr_baseline_queue 
  select person_id from etl.hiv_monthly_report_dataset_frozen
  where enddate=selectedPeriod and location_id in(select location_id from ndwr.mfl_codes where mfl_code=selectMflCode) ;
- SELECT Floor(count(*)/12) from ndwr.ndwr_baseline_queue  INTO queueSize; 
+ SELECT Floor(count(*)/12) from ndwr.ndwr_baseline_queue  INTO queueSize;
  
  replace into ndwr_baseline_queue_12  SELECT person_id from ndwr_baseline_queue limit queueSize;
  delete from ndwr_baseline_queue where person_id in(Select person_id from ndwr_baseline_queue_12);
@@ -83,6 +79,4 @@ BEGIN
  delete from ndwr_baseline_queue where person_id in(Select person_id from ndwr_baseline_queue_2);
  
   END$$
-
 DELIMITER ;
-

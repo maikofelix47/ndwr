@@ -41,7 +41,7 @@ FROM
  			 );
  			DELETE FROM ndwr.ndwr_patient_labs_extract;
 			DELETE FROM ndwr.ndwr_patient_art_extract;
-			DELETE FROM ndwr.ndwr_patient_status;
+			#DELETE FROM ndwr.ndwr_patient_status;
 			DELETE FROM ndwr_all_patient_visits_extract;
 			DELETE FROM ndwr_all_patients_extract;
 			DELETE FROM ndwr_all_patients;

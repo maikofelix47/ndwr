@@ -1,5 +1,5 @@
 DELIMITER $$
-CREATE  PROCEDURE `createPatientNDWRDataSets`(
+CREATE DEFINER=`fmaiko`@`%` PROCEDURE `createPatientNDWRDataSets`(
   IN selectedMFLCode int(11),
   IN selectedFacility varchar(250),
   IN selectedPatient int(11)
@@ -191,8 +191,18 @@ DELETE FROM ndwr.ndwr_visit_0;
                                @facilityName as FacilityName,
                                gender AS Gender,
                                birthdate AS DOB,
-                               t1.enrollment_date as RegistrationDate,
-                               t1.enrollment_date as RegistrationAtCCC,
+                               case
+                                  when DATE(t1.enrollment_date) = '1900-01-01' AND DATE(birthdate) <= '1997-01-01' THEN '1997-01-01'
+                                  when DATE(t1.enrollment_date) = '1900-01-01' AND DATE(birthdate) > '1997-01-01' THEN DATE_ADD(birthdate, INTERVAL 30 DAY)
+                                  when DATE(t1.enrollment_date) > '1900-01-01' AND DATE(birthdate) > DATE(t1.enrollment_date) THEN DATE_ADD(birthdate, INTERVAL 30 DAY)
+                                  WHEN DATE(t1.enrollment_date) > '1900-01-01' AND DATE(birthdate) <= DATE(t1.enrollment_date)  THEN t1.enrollment_date
+                               end as `RegistrationDate`,
+                                case
+                                  when DATE(t1.enrollment_date) = '1900-01-01' AND DATE(birthdate) <= '1997-01-01' THEN '1997-01-01'
+                                  when DATE(t1.enrollment_date) = '1900-01-01' AND DATE(birthdate) > '1997-01-01' THEN DATE_ADD(birthdate, INTERVAL 30 DAY)
+                                  when DATE(t1.enrollment_date) > '1900-01-01' AND DATE(birthdate) > DATE(t1.enrollment_date) THEN DATE_ADD(birthdate, INTERVAL 30 DAY)
+                                  WHEN DATE(t1.enrollment_date) > '1900-01-01' AND DATE(birthdate) <= DATE(t1.enrollment_date)  THEN t1.enrollment_date
+                               end as `RegistrationAtCCC`,
                                null as RegistrationAtPMTCT,
                                null as RegistrationAtTBClinic,
                                null as PatientSource,
@@ -206,7 +216,12 @@ DELETE FROM ndwr.ndwr_visit_0;
    							 end as LastVisit, 
                                null as MaritalStatus,
                                null as EducationLevel,
-                               t1.enrollment_date as DateConfirmedHIVPositive,
+                                 case
+                                  when DATE(t1.enrollment_date) = '1900-01-01' AND DATE(birthdate) <= '1997-01-01' THEN '1997-01-01'
+                                  when DATE(t1.enrollment_date) = '1900-01-01' AND DATE(birthdate) > '1997-01-01' THEN DATE_ADD(birthdate, INTERVAL 30 DAY)
+                                  when DATE(t1.enrollment_date) > '1900-01-01' AND DATE(birthdate) > DATE(t1.enrollment_date) THEN DATE_ADD(birthdate, INTERVAL 30 DAY)
+                                  WHEN DATE(t1.enrollment_date) > '1900-01-01' AND DATE(birthdate) <= DATE(t1.enrollment_date)  THEN t1.enrollment_date
+                               end as `DateConfirmedHIVPositive`,
                                null as PreviousARTExposure,
                                null as PreviousARTStartDate,
                                'AMRS' as Emr,
@@ -293,7 +308,7 @@ DELETE FROM ndwr.ndwr_visit_0;
                                    PatientType,
                                    PopulationType,
                                    TransferInDate
-                               FROM ndwr.ndwr_all_patients 
+                               FROM ndwr.ndwr_all_patients where patientid = @selectedPatient
                                );
    
                      
@@ -379,11 +394,17 @@ DELETE FROM ndwr.ndwr_visit_0;
 			   DATEDIFF(t1.RegistrationDate,DOB)/365.25 as AgeEnrollment,
                if(sign(DATEDIFF(t1.arv_first_regimen_start_date,DOB)/365.25)=-1,DATEDIFF(t1.RegistrationDate,DOB)/365.25, DATEDIFF(t1.arv_first_regimen_start_date,t1.DOB)/365.25) as AgeARTStart,
 			   DATEDIFF(t1.lastVisit,t1.DOB)/365.25 as AgeLastVisit,
-               t1.RegistrationDate,
+               RegistrationDate,
                null as PatientSource,
                t1.gender as Gender,
-               t1.arv_first_regimen_start_date as StartARTDate,
-			   t1.arv_first_regimen_start_date as PreviousARTStartDate,
+               case
+                  when RegistrationDate <= if(DATE(t1.arv_first_regimen_start_date) = '1900-01-01','1997-01-01',t1.arv_first_regimen_start_date) then RegistrationDate
+                  when RegistrationDate > if(DATE(t1.arv_first_regimen_start_date) = '1900-01-01','1997-01-01',t1.arv_first_regimen_start_date) then DATE_ADD(RegistrationDate, INTERVAL 30 DAY)
+               end as `StartARTDate`,
+                case
+                  when RegistrationDate <= if(DATE(t1.arv_first_regimen_start_date) = '1900-01-01','1997-01-01',t1.arv_first_regimen_start_date) then RegistrationDate
+                  when RegistrationDate > if(DATE(t1.arv_first_regimen_start_date) = '1900-01-01','1997-01-01',t1.arv_first_regimen_start_date) then DATE_ADD(RegistrationDate, INTERVAL 30 DAY)
+               end as `PreviousARTStartDate`,
                etl.get_arv_names(t1.arv_first_regimen) as PreviousARTRegimen,
                t1.arv_start_date as StartARTAtThisFacility,
 			   t1.arv_first_regimen as StartRegimen,

@@ -1,8 +1,6 @@
 #tab 1 first connection
 call setReportingPeriod(13528
 ,'2020-01-31');
-call setReportingPeriod(14555
-,'2020-02-29');
 call `ndwr`.`buildNDWRSubQueues`();
 
 #tab 2 first connection

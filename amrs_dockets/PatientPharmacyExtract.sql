@@ -1,4 +1,3 @@
-use ndwr;
 SELECT 
     PatientPK,
     PatientID,
@@ -7,7 +6,7 @@ SELECT
     Emr,
     Project,
     VisitID,
-    Drug,
+    REPLACE(Drug,'##','+') as `Drug`,
     Provider,
     DispenseDate,
     Duration,

@@ -144,32 +144,7 @@ DELETE FROM ndwr.ndwr_visit_0;
                                                           
    							
    							#Find lab_art_start_comparison					
-   							#Pharmacy
-                               
-                               replace into ndwr.ndwr_patient_pharmacy(
-                               SELECT  distinct	
-                               person_id as PatientPK,
-                               person_id as PatientID,
-                               @siteCode as FacilityID,
-                               @siteCode AS SiteCode,
-							   'AMRS' as Emr,
-							   'Ampath Plus' as Project,
-							   encounter_id as VisitID,
-                               etl.get_arv_names(cur_arv_meds) as Drug,
-                               'Government' as Provider,
-                               encounter_datetime as DispenseDate,
-							   DATEDIFF(rtc_date,encounter_datetime) as Duration,
-                               rtc_date as ExpectedReturn,
-                               'HIV Treatment' as TreatmentType,
-                               null AS RegimenLine,
-							   null as PeriodTaken,
-                               null as ProphylaxisType
-   							FROM
-   								etl.flat_hiv_summary_v15b t1
-   							WHERE 	t1.person_id =@selectedPatient
-  							and t1.location_id 
-  							in (select location_id from ndwr.mfl_codes where mfl_code=@selectedMFLCode)
-  							and	t1.cur_arv_meds is not null);
+   							
   								
   							set @status=null;                            
   							set @last_encounter_date=null;                            

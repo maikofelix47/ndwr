@@ -147,55 +147,7 @@ DELETE FROM ndwr.ndwr_visit_0;
    							
   								
   							
-                     
                       
-                       replace into ndwr_all_patient_visits_extract (
-                       SELECT distinct
-						   e.person_id AS PatientPK,
-                           e.person_id AS PatientID,
-   						   @siteCode  as FacilityID,
-                           @siteCode AS SiteCode,
-						   'AMRS' AS Emr,
-						   'Ampath Plus' AS Project,
-                            @facilityName AS FacilityName,
-                           e.encounter_id AS VisitID,
-                           e.encounter_datetime AS VisitDate,
-                           'HIV Care' as Service,
-                           if(cn.name is not null,cn.name,'Unknownknown') as VisitType,
-                           e.cur_who_stage AS WHOStage,
-                           null  AS WABStage,
-                           e.pregnant AS Pregnant,
-                           e.LMP AS LMP,
-                           e.edd as EDD,
-                           v.Height AS Height,
-						   v.Weight AS Weight,
-                           v.bp AS BP,
-                           o.OI AS OI,
-                           o.OIDate AS OIDate,
-                           e.cur_arv_adherence AS Adherence,
-                           e.cur_arv_adherence AS AdherenceCategory,
-                           null as SubstitutionFirstlineRegimenDate,
-                           null as SubstitutionFirstlineRegimenReason,
-                           null as SubstitutionSecondlineRegimenDate,
-                           null as SubstitutionSecondlineRegimenReason,
-						   null as SecondlineRegimenChangeDate,
-						   null as SecondlineRegimenChangeReason,
-                           e.family_planning AS FamilyPlanningMethod,
-                           e.pwp AS PwP,
-                           e.gestation AS GestationAge,
-						   case
-                             when e.rtc_date IS NOT NULL then e.rtc_date
-                             ELSE DATE_ADD(e.encounter_datetime, INTERVAL 21 DAY)
-                           end as NextAppointmentDate,
-                           null as DifferentiatedCare,
-                           null as KeyPopulationType,
-                           'General Population' as PopulationType,
-                           null as StabilityAssessment
-					
-                           FROM      ndwr.ndwr_visit_0 e left join ndwr_vitals v on v.person_id=e.person_id and v.encounter_datetime=e.encounter_datetime
-                           left join ndwroi  o  on o.person_id=e.person_id and o.OIDate=e.encounter_datetime
-						   left join amrs.concept_name cn on cn.concept_id=e.scheduled_visit and cn.concept_name_type='FULLY_SPECIFIED' and voided<>1
-                       ); 
              
 			replace into ndwr.ndwr_patient_status_extract(
                 select

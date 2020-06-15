@@ -11,11 +11,13 @@ BEGIN
 FROM
     ndwr.mfl_period
 LIMIT 1 INTO selectedPeriod;
+
 		SELECT 
     mfl_code
 FROM
     ndwr.mfl_period
 LIMIT 1 INTO selectedMFLCode;
+
   		SELECT 
     facility
 FROM
@@ -23,6 +25,7 @@ FROM
 WHERE
     mfl_code = selectedMFLCode
 LIMIT 1 INTO selectedFacility;
+
 DELETE FROM ndwr.ndwr_baseline_queue 
 WHERE
     person_id IN (SELECT 

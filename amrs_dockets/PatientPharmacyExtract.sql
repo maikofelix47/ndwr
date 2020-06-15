@@ -10,7 +10,7 @@ SELECT
     Provider,
     DispenseDate,
     Duration,
-    IF(ExpectedReturn IS NULL,date_add(DispenseDate,interval 21 day),ExpectedReturn) AS ExpectedReturn,
+    IF(ExpectedReturn IS NULL || DATE(ExpectedReturn) = '0000-00-00',date_add(DispenseDate,interval 21 day),ExpectedReturn) AS ExpectedReturn,
     TreatmentType,
     RegimenLine,
     PeriodTaken,

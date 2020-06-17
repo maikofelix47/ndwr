@@ -356,7 +356,8 @@ DELETE FROM ndwr.ndwr_visit_0;
                            'General Population' as PopulationType,
                            null as StabilityAssessment
 					
-                           FROM      ndwr.ndwr_visit_0 e left join ndwr_vitals v on v.person_id=e.person_id and v.encounter_datetime=e.encounter_datetime
+                           FROM      ndwr.ndwr_visit_0 e 
+                           left join ndwr_vitals v on v.person_id=e.person_id and v.encounter_datetime=e.encounter_datetime
                            left join ndwroi  o  on o.person_id=e.person_id and o.OIDate=e.encounter_datetime
 						   left join amrs.concept_name cn on cn.concept_id=e.scheduled_visit and cn.concept_name_type='FULLY_SPECIFIED' and voided<>1
                        ); 

@@ -1,22 +1,21 @@
-DELIMITER $$
-CREATE  PROCEDURE `build_NDWR_pharmacy_test`(IN queue_number int, IN queue_size int, IN cycle_size int, IN mFLCode INT)
+CREATE  PROCEDURE `ndwr`.`build_NDWR_pharmacy_test`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_pharmacy_test";
           set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_pharmacy_v1.0";
-          set @mFLCode = mFLCode;
-          set @query_type="build";
-
+          set @query_type= query_type;
+          
+          
 CREATE TABLE IF NOT EXISTS ndwr_pharmacy_test (
   `PatientPK` INT NOT NULL,
   `PatientID` INT NOT NULL,
-  `FacilityID` INT NULL,
-  `SiteCode` INT NULL,
+  `FacilityID` INT NOT NULL,
+  `SiteCode` INT NOT NULL,
   `Emr` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
-  `VisitID` INT NULL,
+  `VisitID` INT NOT NULL,
   `Drug` VARCHAR(100) NULL,
   `Provider` VARCHAR(50) NULL,
   `DispenseDate` DATETIME NULL,
@@ -25,7 +24,15 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy_test (
   `TreatmentType` VARCHAR(100) NULL,
   `RegimenLine` VARCHAR(200) NULL,
   `PeriodTaken` VARCHAR(100) NULL,
-  `ProphylaxisType` VARCHAR(100) NULL
+  `ProphylaxisType` VARCHAR(100) NULL,
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY VisitID (VisitID),
+   INDEX patient_date (PatientID , DispenseDate),
+   INDEX patient_id (PatientID),
+   INDEX patient_pk (PatientPK),
+   INDEX dispense_date (DispenseDate),
+   INDEX dispense_date_location (DispenseDate,FacilityID),
+   INDEX date_created (DateCreated)
 );
 
                     if(@query_type="build") then
@@ -57,6 +64,12 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy_test (
                     DEALLOCATE PREPARE s1;
 
                    SELECT @person_ids_count AS 'num patients to build';
+                   
+                   SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
+				   SELECT CONCAT('Deleting patient records in interim ', @primary_table);
+				   PREPARE s1 from @dyn_sql; 
+				   EXECUTE s1; 
+				   DEALLOCATE PREPARE s1;  
 
 				  end if;
 
@@ -80,29 +93,28 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy_test (
                           SET @dyn_sql=CONCAT('create temporary table ndwr_pharmacy_test_interim (SELECT  distinct	
                                t1.person_id as PatientPK,
                                t1.person_id as PatientID,
-                               @siteCode as FacilityID,
-                               @siteCode AS SiteCode,
-							                 "AMRS" as Emr,
-							                 "Ampath Plus" as Project,
-							                 encounter_id as VisitID,
+                               mfl.mfl_code as FacilityID,
+                               mfl.mfl_code as SiteCode,
+							   "AMRS" as Emr,
+							   "Ampath Plus" as Project,
+							   encounter_id as VisitID,
                                etl.get_arv_names(cur_arv_meds) as Drug,
                                "Government" as Provider,
                                encounter_datetime as DispenseDate,
-							                 DATEDIFF(rtc_date,encounter_datetime) as Duration,
+							   DATEDIFF(rtc_date,encounter_datetime) as Duration,
                                rtc_date as ExpectedReturn,
                                "HIV Treatment" as TreatmentType,
                                null AS RegimenLine,
-							                 null as PeriodTaken,
-                               null as ProphylaxisType
+							   null as PeriodTaken,
+                               null as ProphylaxisType,
+                               null
                                 FROM
                                   etl.flat_hiv_summary_v15b t1
+                                left join ndwr.mfl_codes mfl on (mfl.location_id = t1.location_id)
                                 inner join ndwr_pharmacy_test_build_queue__0 t3 on (t3.person_id = t1.person_id)
-                                where 
-                                t1.location_id 
-                                in (select location_id from ndwr.mfl_codes where mfl_code=',@mFLCode,')
-                                and	t1.cur_arv_meds is not null);');
+                                where t1.cur_arv_meds is not null);');
                           
-						 SELECT CONCAT('Creating interim table ', @dyn_sql);
+						 SELECT CONCAT('Creating interim table .. ', @dyn_sql);
 
                           PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
@@ -198,5 +210,4 @@ SELECT
             ' minutes');
 
 
-END$$
-DELIMITER ;
+END

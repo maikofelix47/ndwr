@@ -1,5 +1,5 @@
 DELIMITER $$
-CREATE  PROCEDURE `build_NDWR_all_patient_visits_extract_test`(IN queue_number int, IN queue_size int, IN cycle_size int)
+CREATE  PROCEDURE `build_NDWR_all_patient_visits_extract_test`(IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_all_patient_visits_extract_test";
@@ -7,11 +7,6 @@ BEGIN
 					set @start = now();
 					set @table_version = "ndwr_all_patient_visits_extract_v1.0";
           set @query_type="build";
-
-          SELECT reporting_period FROM ndwr.mfl_period LIMIT 1 INTO @selectedPeriod;
-		  SELECT mfl_code FROM ndwr.mfl_period LIMIT 1 INTO @selectedMFLCode;
-
-           set @siteCode:= @selectedMFLCode; 
 
 CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract_test` (
   `PatientPK` INT NOT NULL,
@@ -50,7 +45,9 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract_test` (
   `DifferentiatedCare` VARCHAR(50) NULL,
   `KeyPopulationType` VARCHAR(50) NULL,
   `PopulationType` VARCHAR(50) NULL,
-  `StabilityAssessment` VARCHAR(50) NULL);
+  `StabilityAssessment` VARCHAR(50) NULL,
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  );
 
                     if(@query_type="build") then
 
@@ -111,52 +108,59 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract_test` (
                           
                 create temporary table ndwr_all_patient_visits_extract_test_interim (
                        SELECT distinct
-						   e.person_id AS PatientPK,
+						               e.person_id AS PatientPK,
                            e.person_id AS PatientID,
-   						   @siteCode  as FacilityID,
-                           @siteCode AS SiteCode,
-						   'AMRS' AS Emr,
-						   'Ampath Plus' AS Project,
-                            @facilityName AS FacilityName,
+   						             mfl.mfl_code as FacilityID,
+                           mfl.mfl_code as SiteCode,
+						               'AMRS' AS Emr,
+						               'Ampath Plus' AS Project,
+                           mfl.Facility AS FacilityName,
                            e.encounter_id AS VisitID,
                            e.encounter_datetime AS VisitDate,
                            'HIV Care' as Service,
-                           if(cn.name is not null,cn.name,'Unknownknown') as VisitType,
+                           case
+                             when e.scheduled_visit = '1246' then 'SCHEDULED VISIT'
+                             when e.scheduled_visit = '1838' then 'UNSCHEDULED VISIT LATE'
+                             when e.scheduled_visit = '1837' then 'UNSCHEDULED VISIT EARLY'
+                             when e.scheduled_visit = '8914' then 'UNSCHEDULED OUTPATIENT VISIT'
+                             when e.scheduled_visit = '2345' then 'FOLLOW-UP'
+                             when e.scheduled_visit = '7850' then 'INITIAL VISIT'
+                             else 'Unknownknown'
+                           end as VisitType,
                            e.cur_who_stage AS WHOStage,
                            null  AS WABStage,
-                           e.pregnant AS Pregnant,
-                           e.LMP AS LMP,
+                           if(e.edd,'Yes',null) AS Pregnant,
+                           if(e.edd,date_add(e.edd, interval -280 day),null) AS LMP,
                            e.edd as EDD,
-                           v.Height AS Height,
-						   v.Weight AS Weight,
-                           v.bp AS BP,
-                           o.OI AS OI,
-                           o.OIDate AS OIDate,
+                           0 AS Height,
+						               0 AS Weight,
+                           0 AS BP,
+                           null AS OI,
+                           null AS OIDate,
                            e.cur_arv_adherence AS Adherence,
                            e.cur_arv_adherence AS AdherenceCategory,
                            null as SubstitutionFirstlineRegimenDate,
                            null as SubstitutionFirstlineRegimenReason,
                            null as SubstitutionSecondlineRegimenDate,
                            null as SubstitutionSecondlineRegimenReason,
-						   null as SecondlineRegimenChangeDate,
-						   null as SecondlineRegimenChangeReason,
-                           e.family_planning AS FamilyPlanningMethod,
-                           e.pwp AS PwP,
-                           e.gestation AS GestationAge,
-						   case
+						               null as SecondlineRegimenChangeDate,
+						               null as SecondlineRegimenChangeReason,
+                           IF(e.contraceptive_method,e.contraceptive_method,null) AS FamilyPlanningMethod,
+                           e.contraceptive_method AS PwP,
+                           if(e.edd,datediff(e.encounter_datetime,date_add(e.edd, interval -280 day)),null) AS GestationAge,
+						               case
                              when e.rtc_date IS NOT NULL then e.rtc_date
                              ELSE DATE_ADD(e.encounter_datetime, INTERVAL 21 DAY)
                            end as NextAppointmentDate,
                            null as DifferentiatedCare,
                            null as KeyPopulationType,
                            'General Population' as PopulationType,
-                           null as StabilityAssessment
+                           null as StabilityAssessment,
+                           null
 					
-                           FROM  ndwr.ndwr_visit_0 e 
+                           FROM etl.flat_hiv_summary_v15b e 
                            inner join ndwr_all_patient_visits_extract_test_build_queue__0 t3 on (t3.person_id = e.person_id)
-                           left join ndwr_vitals v on v.person_id=e.person_id and v.encounter_datetime=e.encounter_datetime
-                           left join ndwroi  o  on o.person_id=e.person_id and o.OIDate=e.encounter_datetime
-						                left join amrs.concept_name cn on cn.concept_id=e.scheduled_visit and cn.concept_name_type='FULLY_SPECIFIED' and voided<>1
+                           left join ndwr.mfl_codes mfl on (mfl.location_id = e.location_id)
                        ); 
                           
 						 SELECT CONCAT('Created interim table ..');

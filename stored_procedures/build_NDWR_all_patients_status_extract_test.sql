@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_status_extract_test` (
     `FacilityName` VARCHAR(50) NOT NULL,
     `ExitDescription` VARCHAR(50) NULL,
     `ExitDate` DATETIME NULL,
-    `ExitReason` VARCHAR(200) NULL
+    `ExitReason` VARCHAR(200) NULL,
+    `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
                     if(@query_type="build") then

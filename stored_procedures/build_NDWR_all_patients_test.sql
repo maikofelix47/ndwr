@@ -69,7 +69,8 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_test (
     `PatientResidentWard` VARCHAR(100) NULL,
     `PatientType` VARCHAR(100) NULL,
     `PopulationType` VARCHAR(100) NULL,
-    `TransferInDate` DATETIME NULL
+    `TransferInDate` DATETIME NULL,
+    `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patients_extract_test` (

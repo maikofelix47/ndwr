@@ -255,7 +255,6 @@ ORDER BY t1.encounter_date DESC);
 
                         
                           
-						SELECT CONCAT('Creating interim table');
 
 SELECT 
     COUNT(*)

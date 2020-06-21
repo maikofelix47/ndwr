@@ -6,11 +6,11 @@ IN selectedPatient INT)
 BEGIN
 	
  		 Set @facilityName:= selectedFacility;
-         set @siteCode := selectedMFLCode;
-         set @lastCd4 := null;	
-         set @lastCd4_date := null;		
-         set @lastCd4Pc := null;		
-         set @last_cd4_percent_date := null;
+    set @siteCode := selectedMFLCode;
+    set @lastCd4 := null;	
+    set @lastCd4_date := null;		
+    set @lastCd4Pc := null;		
+    set @last_cd4_percent_date := null;
  		set @cd4_percent_date_before_arv_start := null ;
  		set @cd4_percent_before_arv_start := null ;
  		set @cd4_percent_date_after_arv_start := null ;
@@ -328,7 +328,7 @@ BEGIN
  							end as v_l_date_after_12month_arv 
  							
  							
-                             FROM ndwr_base_line_0 t1 where person_id=selectedPatient order by close_first_regimen_start desc;
+              FROM ndwr_base_line_0 t1 where person_id=selectedPatient order by close_first_regimen_start desc;
  							
  							insert into patient_base_line(person_id,lastCd4,lastCd4_date,last_who_stage,last_who_stage_date,last_cd4_percent,last_cd4_percent_date,cd4_percent_at_arv_start,cd4_percent_at_arv_start_date,cd4_at_arv_start,cd4_at_arv_start_date,who_stage_at_arv_start,who_stage_at_arv_start_date,cd4_before_arv_start,cd4_date_before_arv_start,cur_who_stage_before_arv_start,cur_who_stage_date_before_arv_start,cd4_percent_before_arv_start,cd4_percent_date_before_arv_start,cd4_after_arv_start,cd4_date_after_arv_start,cd4_percent_after_arv_start,cd4_percent_date_after_arv_start,cur_who_stage_after_6month_arv,cur_who_stage_date_after_6month_arv,v_l_after_6month_arv,v_l_date_after_6month_arv,cd4_percent_after_6month_arv,cd4_percent_date_after_6month_arv,cd4_after_6month_arv,cd4_date_after_6month_arv,cur_who_stage_after_12month_arv,cur_who_stage_date_after_12month_arv,cd4_percent_after_12month_arv,cd4_percent_date_after_12month_arv,cd4_after_12month_arv,cd4_date_after_12month_arv,v_l_after_12month_arv,v_l_date_after_12month_arv) values(selectedPatient,@lastCd4,@lastCd4_date,
  							@last_who_stage,@last_who_stage_date,@last_cd4_percent,@last_cd4_percent_date,@cd4_percent_at_arv_start,@cd4_percent_at_arv_start_date,@cd4_at_arv_start,@cd4_at_arv_start_date,@who_stage_at_arv_start,@who_stage_at_arv_start_date,@cd4_before_arv_start,@cd4_date_before_arv_start,@cur_who_stage_before_arv_start,@cur_who_stage_date_before_arv_start,@cd4_percent_before_arv_start,@cd4_percent_date_before_arv_start,@cd4_after_arv_start,@cd4_date_after_arv_start,@cd4_percent_after_arv_start,@cd4_percent_date_after_arv_start,@cur_who_stage_after_6month_arv,@cur_who_stage_date_after_6month_arv,@v_l_after_6month_arv,@v_l_date_after_6month_arv,@cd4_percent_after_6month_arv,@cd4_percent_date_after_6month_arv,@cd4_after_6month_arv,@cd4_date_after_6month_arv,@cur_who_stage_after_12month_arv,@cur_who_stage_date_after_12month_arv,@cd4_percent_after_12month_arv,@cd4_percent_date_after_12month_arv,@cd4_after_12month_arv,@cd4_date_after_12month_arv,@v_l_after_12month_arv,

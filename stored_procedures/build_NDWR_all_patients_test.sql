@@ -1,33 +1,19 @@
 DELIMITER $$
-CREATE DEFINER=`fmaiko`@`%` PROCEDURE `build_NDWR_all_patients_test`(IN queue_number int, IN queue_size int, IN cycle_size int)
+CREATE  PROCEDURE `build_NDWR_all_patients_test`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN end_date varchar(50) ,IN log BOOLEAN)
 BEGIN
 
-					set @primary_table := "ndwr_all_patients_test";
+					set @primary_table := "ndwr_all_patients_extract_test";
                     set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_all_patients_v1.0";
-SELECT 
-    reporting_period
-FROM
-    ndwr.mfl_period
-LIMIT 1 INTO @selectedPeriod;
-		SELECT 
-    mfl_code
-FROM
-    ndwr.mfl_period
-LIMIT 1 INTO @selectedMFLCode;
-SELECT CONCAT('MFL Code ', @selectedMFLCode);
-SELECT CONCAT('MFL Period ', @selectedPeriod);
-          set @siteCode:= @selectedMFLCode;
-          set @query_type="build";
+                    set @query_type=query_type;
+                    set @end_date = end_date;
 
-          
-
-CREATE TABLE IF NOT EXISTS ndwr_all_patients_test (
-    `patientid` INT NOT NULL,
+CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract_test (
+    `PatientID` INT NOT NULL,
     `PatientPK` INT NOT NULL,
     `SiteCode` INT NOT NULL,
-    `facilityname` VARCHAR(100) NULL,
+    `FacilityName` VARCHAR(100) NULL,
     `Gender` VARCHAR(10) NULL,
     `DOB` DATETIME NULL,
     `RegistrationDate` DATETIME NOT NULL,
@@ -46,7 +32,7 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_test (
     `PreviousARTExposure` VARCHAR(50) NULL,
     `PreviousARTStartDate` DATETIME NULL,
     `Emr` VARCHAR(50) NULL,
-    `project` VARCHAR(50) NULL,
+    `Project` VARCHAR(50) NULL,
     `FacilityID` INT NULL,
     `StatusAtCCC` VARCHAR(100) NULL,
     `StatusAtPMTCT` VARCHAR(100) NULL,
@@ -73,54 +59,11 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_test (
     `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patients_extract_test` (
-  `PatientPK` INT NOT NULL,
-  `PatientID` VARCHAR(100) NOT NULL,
-  `FacilityID` INT NULL,
-  `SiteCode` INT NOT NULL,
-  `Emr` VARCHAR(50) NULL,
-  `Project` VARCHAR(50) NULL,
-  `FacilityName` VARCHAR(100) NULL,
-  `Gender` VARCHAR(10) NULL,
-  `DOB` DATETIME NULL,
-  `RegistrationDate` DATETIME NOT NULL,
-  `RegistrationAtCCC` DATETIME NOT NULL,
-  `RegistrationAtPMTCT` DATETIME NULL,
-  `RegistrationAtTBClinic` DATETIME NULL,
-  `PatientSource` VARCHAR(100) NULL,
-  `Region` VARCHAR(100) NULL,
-  `District` VARCHAR(100) NULL,
-  `Village` VARCHAR(100) NULL,
-  `ContactRelation` VARCHAR(250) NULL,
-  `LastVisit` DATETIME NULL,
-  `MaritalStatus` VARCHAR(100) NULL,
-  `EducationLevel` VARCHAR(50) NULL,
-  `DateConfirmedHIVPositive` DATETIME NULL,
-  `PreviousARTExposure` VARCHAR(50) NULL,
-  `PreviousARTStartDate` DATETIME NULL,
-  `StatusAtCCC` VARCHAR(100) NULL,
-  `StatusAtPMTCT` VARCHAR(100) NULL,
-  `StatusAtTBClinic` VARCHAR(100) NULL,
-  `SatelliteName` VARCHAR(100) NULL,
-  `Inschool` VARCHAR(100) NULL,
-  `KeyPopulationType` VARCHAR(100) NULL,
-  `Orphan` VARCHAR(100) NULL,
-  `PatientResidentCounty` VARCHAR(100) NULL,
-  `PatientResidentLocation` VARCHAR(100) NULL,
-  `PatientResidentSubCounty` VARCHAR(100) NULL,
-  `PatientResidentSubLocation` VARCHAR(100) NULL,
-  `PatientResidentVillage` VARCHAR(100) NULL,
-  `PatientResidentWard` VARCHAR(100) NULL,
-  `PatientType` VARCHAR(100) NULL,
-  `PopulationType` VARCHAR(100) NULL,
-  `TransferInDate` DATETIME NULL);
-
                     if(@query_type="build") then
 
 							              select 'BUILDING..........................................';
                             set @write_table = concat("ndwr_all_patients_test_temp_",queue_number);
                             set @queue_table = concat("ndwr_all_patients_test_build_queue_",queue_number);
-                            set @extract_table = 'ndwr_all_patients_extract_test';
 
 										  SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
 							              PREPARE s1 from @dyn_sql; 
@@ -154,13 +97,6 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patients_extract_test` (
                     PREPARE s1 from @dyn_sql; 
                     EXECUTE s1; 
                     DEALLOCATE PREPARE s1;
-                    
-					SELECT CONCAT('Deleting data from ',@extract_table);
-                    
-                    SET @dyn_sql=CONCAT('delete t1 from ',@extract_table, ' t1 join ',@queue_table,' t2 on (t1.PatientID = t2.person_id);'); 
-                    PREPARE s1 from @dyn_sql; 
-                    EXECUTE s1; 
-                    DEALLOCATE PREPARE s1; 
 
                     set @total_time=0;
                     set @cycle_number = 0;
@@ -182,10 +118,11 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patients_extract_test` (
 						  
                           drop temporary table if exists ndwr_all_patients_test_interim;
                           
-CREATE temporary TABLE ndwr_all_patients_test_interim (SELECT DISTINCT t1.person_id AS PatientID,
+CREATE temporary TABLE ndwr_all_patients_test_interim (SELECT 
+    DISTINCT t1.person_id AS PatientID,
     t1.person_id AS PatientPK,
-    @siteCode AS SiteCode,
-    @facilityName AS FacilityName,
+    mfl.mfl_code as SiteCode,
+    mfl.Facility AS FacilityName,             
     gender AS Gender,
     birthdate AS DOB,
     CASE
@@ -271,7 +208,7 @@ CREATE temporary TABLE ndwr_all_patients_test_interim (SELECT DISTINCT t1.person
     NULL AS PreviousARTStartDate,
     'AMRS' AS Emr,
     'Ampath Plus' AS Project,
-    @siteCode AS FacilityID,
+    mfl.mfl_code as FacilityID,
     CASE
         WHEN @status IS NULL THEN @status:=t1.status
         ELSE @status
@@ -305,18 +242,15 @@ CREATE temporary TABLE ndwr_all_patients_test_interim (SELECT DISTINCT t1.person
     NULL AS PatientResidentWard,
     NULL AS PatientType,
     'GeneralPopulation' AS PopulationType,
-    NULL AS TransferInDate FROM
+    NULL AS TransferInDate,
+    null as DateCreated
+    FROM
     etl.hiv_monthly_report_dataset_frozen t1
         INNER JOIN
     ndwr_all_patients_test_build_queue__0 t3 ON (t3.person_id = t1.person_id)
+    left join ndwr.mfl_codes mfl on (mfl.location_id = t1.location_id)
 WHERE
-    enddate = @selectedPeriod
-        AND t1.location_id IN (SELECT 
-            location_id
-        FROM
-            ndwr.mfl_codes
-        WHERE
-            mfl_code = @selectedMFLCode)
+    enddate = @end_date
 ORDER BY t1.encounter_date DESC);
 
                         
@@ -383,52 +317,6 @@ SELECT
             @primary_table);
 
                         SET @dyn_sql=CONCAT('replace into ', @primary_table,'(select * from ',@write_table,');');
-                        PREPARE s1 from @dyn_sql; 
-                        EXECUTE s1;
-                        DEALLOCATE PREPARE s1;
-                        
-                        SELECT CONCAT('Writing data to ', @extract_table);
-                        
-						SET @dyn_sql=CONCAT('replace into ',@extract_table,'(SELECT DISTINCT PatientPK,
-    patientid AS PatientID,
-    FacilityID,
-    SiteCode,
-    Emr,
-    project AS Project,
-    facilityname AS FacilityName,
-    Gender,
-    DOB,
-    RegistrationDate,
-    RegistrationAtCCC,
-    RegistrationAtPMTCT,
-    RegistrationAtTBClinic,
-    PatientSource,
-    Region,
-    District,
-    Village,
-    ContactRelation,
-    LastVisit,
-    MaritalStatus,
-    EducationLevel,
-    DateConfirmedHIVPositive,
-    PreviousARTExposure,
-    PreviousARTStartDate,
-    StatusAtCCC,
-    StatusAtPMTCT,
-    StatusAtTBClinic,
-    SatelliteName,
-    Inschool,
-    KeyPopulationType,
-    Orphan,
-    PatientResidentCounty,
-    PatientResidentLocation,
-    PatientResidentSubCounty,
-    PatientResidentSubLocation,
-    PatientResidentVillage,
-    PatientResidentWard,
-    PatientType,
-    PopulationType,
-    TransferInDate FROM ',@primary_table,');');
                         PREPARE s1 from @dyn_sql; 
                         EXECUTE s1;
                         DEALLOCATE PREPARE s1;

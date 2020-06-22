@@ -26,9 +26,14 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
   `AdverseEventCause` VARCHAR(250) NULL,
   `AdverseEventRegimen` VARCHAR(250) NULL),
   `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-   INDEX patient_id (PatientID),
-   INDEX patient_pk (PatientPK),
-   INDEX date_created (DateCreated)
+   INDEX event_patient_id (PatientID),
+   INDEX event_patient_pk (PatientPK),
+   INDEX event_facility_id (FacilityID),
+   INDEX event_site_code (SiteCode),
+   INDEX event_visit_date (VisitDate),
+   INDEX event_date_created (DateCreated),
+   INDEX event_patient_visit (PatientID,VisitDate),
+   INDEX event_patient_facility (PatientID,FacilityID)
 );
 
                     if(@query_type="build") then

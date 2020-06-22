@@ -39,7 +39,13 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract_test` (
   `m12CD4Date` DATETIME NULL,
   `m6CD4` INT NULL,
   `m6CD4Date` DATETIME NULL,
-  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	 INDEX baseline_patient_id (PatientID),
+   INDEX baseline_patient_pk (PatientPK),
+   INDEX baseline_facility_id (FacilityID),
+   INDEX baselinne_site_code (SiteCode),
+   INDEX baseline_date_created (DateCreated),
+   INDEX baseline_patient_facility (PatientID,FacilityID)
   );
 
                     if(@query_type="build") then

@@ -56,7 +56,17 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract_test (
     `PatientType` VARCHAR(100) NULL,
     `PopulationType` VARCHAR(100) NULL,
     `TransferInDate` DATETIME NULL,
-    `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+     INDEX patient_patient_id (PatientID),
+     INDEX patient_patient_pk (PatientPK),
+     INDEX patient_facility_id (FacilityID),
+     INDEX patient_site_code (SiteCode),
+     INDEX patient_date_created (DateCreated),
+     INDEX patient_patient_facility (PatientID,FacilityID)
+     INDEX patient_rtc (PatientID,rtc_date),
+     INDEX patient_reg_start (PatientID,arv_first_regimen_start_date)
+     INDEX patient_arv_start (PatientID,arv_first_regimen_start_date)
+     INDEX patient_transfer_in (PatientID,arv_start_date)
 );
 
                     if(@query_type="build") then

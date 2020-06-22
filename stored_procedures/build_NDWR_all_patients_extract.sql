@@ -255,7 +255,7 @@ CREATE temporary TABLE ndwr_all_patients_interim (SELECT
     NULL AS TransferInDate,
     null as DateCreated
     FROM
-    etl.hiv_monthly_report_dataset_frozen t1
+    etl.hiv_monthly_report_dataset_v1_2 t1
         INNER JOIN
     ndwr_all_patients_build_queue__0 t3 ON (t3.person_id = t1.person_id)
     left join ndwr.mfl_codes mfl on (mfl.location_id = t1.location_id)

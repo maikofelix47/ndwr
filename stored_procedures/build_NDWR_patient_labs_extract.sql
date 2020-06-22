@@ -1,15 +1,15 @@
 DELIMITER $$
-CREATE PROCEDURE `build_NDWR_ndwr_patient_labs_extract_test`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
+CREATE PROCEDURE `build_NDWR_ndwr_patient_labs_extract`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
 
-					set @primary_table := "ndwr_patient_labs_extract_test";
+					set @primary_table := "ndwr_patient_labs_extract";
           set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_patient_labs_extract_v1.0";
           set @query_type= query_type;
           
           
-CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract_test (
+CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
   `PatientPK` INT NOT NULL,
   `PatientID` INT NOT NULL,
   `FacilityID` INT NULL,
@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract_test (
                     if(@query_type="build") then
 
 							              select 'BUILDING..........................................';
-                            set @write_table = concat("ndwr_patient_labs_extract_test_temp_",queue_number);
-                            set @queue_table = concat("ndwr_patient_labs_extract_test_build_queue_",queue_number);                    												
+                            set @write_table = concat("ndwr_patient_labs_extract_temp_",queue_number);
+                            set @queue_table = concat("ndwr_patient_labs_extract_build_queue_",queue_number);                    												
 
 										  SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
 							              PREPARE s1 from @dyn_sql; 
@@ -47,12 +47,12 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract_test (
 							              DEALLOCATE PREPARE s1;  
 
 
-							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_patient_labs_extract_test_build_queue limit ', queue_size, ');'); 
+							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_patient_labs_extract_build_queue limit ', queue_size, ');'); 
 							              PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
 
-							              SET @dyn_sql=CONCAT('delete t1 from ndwr_patient_labs_extract_test_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
+							              SET @dyn_sql=CONCAT('delete t1 from ndwr_patient_labs_extract_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
                             PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
@@ -81,17 +81,17 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract_test (
                     while @person_ids_count > 0 do
 
 					set @loop_start_time = now();
-					drop  table if exists ndwr_patient_labs_extract_test_build_queue__0;
+					drop  table if exists ndwr_patient_labs_extract_build_queue__0;
 
-					SET @dyn_sql=CONCAT('create table if not exists ndwr_patient_labs_extract_test_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit ',cycle_size,');'); 
+					SET @dyn_sql=CONCAT('create table if not exists ndwr_patient_labs_extract_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit ',cycle_size,');'); 
 					PREPARE s1 from @dyn_sql; 
 					EXECUTE s1; 
 					DEALLOCATE PREPARE s1;
                                       
 						  
-					drop temporary table if exists ndwr_patient_labs_extract_test_interim;
+					drop temporary table if exists ndwr_patient_labs_extract_interim;
                           
-				CREATE temporary TABLE ndwr.ndwr_patient_labs_extract_test_interim
+				CREATE temporary TABLE ndwr.ndwr_patient_labs_extract_interim
                    (SELECT 
                        t.person_id AS PatientPK,
                        t.person_id AS PatientID,
@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract_test (
    
                        FROM
                        etl.flat_lab_obs t1 
-                       join ndwr.ndwr_patient_labs_extract_test_build_queue__0 b1 on (b1.person_id = t1.person_id)
+                       join ndwr.ndwr_patient_labs_extract_build_queue__0 b1 on (b1.person_id = t1.person_id)
   					 WHERE 			 
   					 t1.obs REGEXP '!!5497=[0-9]' 
                            
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract_test (
    
                        FROM
                            etl.flat_lab_obs t2   
-                           join ndwr.ndwr_patient_labs_extract_test_build_queue__0 b2 on (b2.person_id = t2.person_id)
+                           join ndwr.ndwr_patient_labs_extract_build_queue__0 b2 on (b2.person_id = t2.person_id)
                            WHERE  t2.obs REGEXP '!!730=[0-9]'
                            
                            Union 
@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract_test (
    
                        FROM
                            etl.flat_lab_obs  t3  
-						   join ndwr.ndwr_patient_labs_extract_test_build_queue__0 b3 on (b3.person_id = t3.person_id)
+						   join ndwr.ndwr_patient_labs_extract_build_queue__0 b3 on (b3.person_id = t3.person_id)
                            WHERE  
                            t3.obs REGEXP '!!856=[0-9]'
                            
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract_test (
 SELECT 
     COUNT(*)
 INTO @new_encounter_rows FROM
-    ndwr_patient_labs_extract_test_interim;
+    ndwr_patient_labs_extract_interim;
 SELECT @new_encounter_rows;                    
                           set @total_rows_written = @total_rows_written + @new_encounter_rows;
 SELECT @total_rows_written;
@@ -206,7 +206,7 @@ SELECT @total_rows_written;
                            i.Reason,
                            null as DateCreated
                           
-                          from ndwr_patient_labs_extract_test_interim i
+                          from ndwr_patient_labs_extract_interim i
                           left join ndwr.ndwr_all_patients_extract t on (t.PatientID = i.PatientID)
                           
                           )');
@@ -215,7 +215,7 @@ SELECT @total_rows_written;
                           EXECUTE s1; 
                           DEALLOCATE PREPARE s1;
 
-                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_patient_labs_extract_test_build_queue__0 t2 using (person_id);'); 
+                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_patient_labs_extract_build_queue__0 t2 using (person_id);'); 
 					                PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
 					                DEALLOCATE PREPARE s1;  

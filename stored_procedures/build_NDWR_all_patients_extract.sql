@@ -1,15 +1,15 @@
 DELIMITER $$
-CREATE  PROCEDURE `build_NDWR_all_patients_test`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN end_date varchar(50) ,IN log BOOLEAN)
+CREATE  PROCEDURE `build_NDWR_all_patients`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN end_date varchar(50) ,IN log BOOLEAN)
 BEGIN
 
-					set @primary_table := "ndwr_all_patients_extract_test";
+					set @primary_table := "ndwr_all_patients_extract";
                     set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_all_patients_v1.0";
                     set @query_type=query_type;
                     set @end_date = end_date;
 
-CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract_test (
+CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
     `PatientID` INT NOT NULL,
     `PatientPK` INT NOT NULL,
     `SiteCode` INT NOT NULL,
@@ -72,8 +72,8 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract_test (
                     if(@query_type="build") then
 
 							              select 'BUILDING..........................................';
-                            set @write_table = concat("ndwr_all_patients_test_temp_",queue_number);
-                            set @queue_table = concat("ndwr_all_patients_test_build_queue_",queue_number);
+                            set @write_table = concat("ndwr_all_patients_temp_",queue_number);
+                            set @queue_table = concat("ndwr_all_patients_build_queue_",queue_number);
 
 										  SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
 							              PREPARE s1 from @dyn_sql; 
@@ -81,12 +81,12 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract_test (
 							              DEALLOCATE PREPARE s1;  
 
 
-							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_all_patients_test_build_queue limit ', queue_size, ');'); 
+							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_all_patients_build_queue limit ', queue_size, ');'); 
 							              PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
 
-							              SET @dyn_sql=CONCAT('delete t1 from ndwr_all_patients_test_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
+							              SET @dyn_sql=CONCAT('delete t1 from ndwr_all_patients_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
                                           PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
@@ -118,17 +118,17 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract_test (
                     while @person_ids_count > 0 do
 
                         	set @loop_start_time = now();
-							drop  table if exists ndwr_all_patients_test_build_queue__0;
+							drop  table if exists ndwr_all_patients_build_queue__0;
 
-                                      SET @dyn_sql=CONCAT('create temporary table if not exists ndwr_all_patients_test_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit ',cycle_size,');'); 
+                                      SET @dyn_sql=CONCAT('create temporary table if not exists ndwr_all_patients_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit ',cycle_size,');'); 
 						              PREPARE s1 from @dyn_sql; 
 						              EXECUTE s1; 
 						              DEALLOCATE PREPARE s1;
                                       
 						  
-                          drop temporary table if exists ndwr_all_patients_test_interim;
+                          drop temporary table if exists ndwr_all_patients_interim;
                           
-CREATE temporary TABLE ndwr_all_patients_test_interim (SELECT 
+CREATE temporary TABLE ndwr_all_patients_interim (SELECT 
     DISTINCT t1.person_id AS PatientID,
     t1.person_id AS PatientPK,
     mfl.mfl_code as SiteCode,
@@ -257,7 +257,7 @@ CREATE temporary TABLE ndwr_all_patients_test_interim (SELECT
     FROM
     etl.hiv_monthly_report_dataset_frozen t1
         INNER JOIN
-    ndwr_all_patients_test_build_queue__0 t3 ON (t3.person_id = t1.person_id)
+    ndwr_all_patients_build_queue__0 t3 ON (t3.person_id = t1.person_id)
     left join ndwr.mfl_codes mfl on (mfl.location_id = t1.location_id)
 WHERE
     enddate = @end_date
@@ -269,18 +269,18 @@ ORDER BY t1.encounter_date DESC);
 SELECT 
     COUNT(*)
 INTO @new_encounter_rows FROM
-    ndwr_all_patients_test_interim;
+    ndwr_all_patients_interim;
 SELECT @new_encounter_rows;                    
                           set @total_rows_written = @total_rows_written + @new_encounter_rows;
 SELECT @total_rows_written;
 
-                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select * from ndwr_all_patients_test_interim)');
+                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select * from ndwr_all_patients_interim)');
 
                           PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
                           DEALLOCATE PREPARE s1;
 
-                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_all_patients_test_build_queue__0 t2 using (person_id);'); 
+                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_all_patients_build_queue__0 t2 using (person_id);'); 
 					                PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
 					                DEALLOCATE PREPARE s1;  

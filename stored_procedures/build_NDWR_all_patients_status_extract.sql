@@ -57,9 +57,29 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_status_extract` (
                     EXECUTE s1; 
                     DEALLOCATE PREPARE s1;
 
-SELECT @person_ids_count AS 'num patients to build';
+                    SELECT @person_ids_count AS 'num patients to build';
 
 				  end if;
+                   if (@query_type="sync") then
+                            select 'SYNCING..........................................';
+                            set @write_table = concat("ndwr_all_patient_status_extract_temp_",queue_number);
+                            set @queue_table = "ndwr_all_patient_status_extract_sync_queue";
+                            CREATE TABLE IF NOT EXISTS ndwr_all_patient_status_extract_sync_queue (
+                                person_id INT PRIMARY KEY
+                            );                            
+                            
+                            set @last_update = null;
+                            SELECT 
+                                MAX(date_updated)
+                            INTO @last_update FROM
+                                ndwr.flat_log
+                            WHERE
+                                table_name = @table_version;
+
+                            replace into ndwr_all_patient_status_extract_sync_queue
+                             (select distinct PatientID from ndwr.ndwr_all_patients where DateCreated >= @last_update);
+
+                   end if;
 
                     set @total_time=0;
                     set @cycle_number = 0;
@@ -97,7 +117,8 @@ SELECT CONCAT('Creating and populating interim status table ..');
                    t1.FacilityName,
   				         if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitDescription,
 				           if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null) as ExitDate,
-                   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitReason
+                   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitReason,
+                   null as DateCreated
                  
                     from ndwr.ndwr_all_patients t1
                     inner join ndwr.ndwr_all_patient_status_extract_build_queue__0 t2 on (t1.PatientID = t2.person_id)

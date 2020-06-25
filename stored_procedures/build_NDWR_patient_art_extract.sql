@@ -52,41 +52,63 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
 
                     if(@query_type="build") then
 
-							              select 'BUILDING..........................................';
-                            set @write_table = concat("ndwr_patient_art_extract_temp_",queue_number);
-                            set @queue_table = concat("ndwr_patient_art_extract_build_queue_",queue_number);                    												
+							                    select 'BUILDING..........................................';
+                                  set @write_table = concat("ndwr_patient_art_extract_temp_",queue_number);
+                                  set @queue_table = concat("ndwr_patient_art_extract_build_queue_",queue_number);                    												
 
-										  SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
-							              PREPARE s1 from @dyn_sql; 
-							              EXECUTE s1; 
-							              DEALLOCATE PREPARE s1;  
+                                  SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
+                                  PREPARE s1 from @dyn_sql; 
+                                  EXECUTE s1; 
+                                  DEALLOCATE PREPARE s1;  
 
 
-							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_patient_art_extract_build_queue limit ', queue_size, ');'); 
-							              PREPARE s1 from @dyn_sql; 
-							              EXECUTE s1; 
-							              DEALLOCATE PREPARE s1;  
+                                  SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_patient_art_extract_build_queue limit ', queue_size, ');'); 
+                                  PREPARE s1 from @dyn_sql; 
+                                  EXECUTE s1; 
+                                  DEALLOCATE PREPARE s1;  
 
-							              SET @dyn_sql=CONCAT('delete t1 from ndwr_patient_art_extract_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
-                            PREPARE s1 from @dyn_sql; 
-							              EXECUTE s1; 
-							              DEALLOCATE PREPARE s1;  
-                                          
-					SET @person_ids_count = 0;
-                    SET @dyn_sql=CONCAT('select count(*) into @person_ids_count from ',@queue_table); 
-                    PREPARE s1 from @dyn_sql; 
-                    EXECUTE s1; 
-                    DEALLOCATE PREPARE s1;
+                                  SET @dyn_sql=CONCAT('delete t1 from ndwr_patient_art_extract_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
+                                  PREPARE s1 from @dyn_sql; 
+                                  EXECUTE s1; 
+                                  DEALLOCATE PREPARE s1;  
+                                                
+                                  SET @person_ids_count = 0;
+                                  SET @dyn_sql=CONCAT('select count(*) into @person_ids_count from ',@queue_table); 
+                                  PREPARE s1 from @dyn_sql; 
+                                  EXECUTE s1; 
+                                  DEALLOCATE PREPARE s1;
 
-                   SELECT @person_ids_count AS 'num patients to build';
+                                  SELECT @person_ids_count AS 'num patients to build';
                    
-                   SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
-				   SELECT CONCAT('Deleting patient records in interim ', @primary_table);
-				   PREPARE s1 from @dyn_sql; 
-				   EXECUTE s1; 
-				   DEALLOCATE PREPARE s1;  
+                                  SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
+				                          SELECT CONCAT('Deleting patient records in interim ', @primary_table);
+				                          PREPARE s1 from @dyn_sql; 
+				                          EXECUTE s1; 
+				                          DEALLOCATE PREPARE s1;  
 
-				  end if;
+				             end if;
+                     if (@query_type="sync") then
+                            select 'SYNCING..........................................';
+                            set @write_table = concat("ndwr_patient_art_extract_temp_",queue_number);
+                            set @queue_table = "ndwr_patient_art_extract_sync_queue";
+                            CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract_sync_queue (
+                                person_id INT PRIMARY KEY
+                            );                            
+                            
+                            set @last_update = null;
+                            SELECT 
+                                MAX(date_updated)
+                            INTO @last_update FROM
+                                ndwr.flat_log
+                            WHERE
+                                table_name = @table_version;
+
+                            replace into ndwr_patient_art_extract_sync_queue
+                             (select distinct PatientID from ndwr.ndwr_all_patients where DateCreated >= @last_update);
+
+                      end if;
+
+
 
                     set @total_time=0;
                     set @cycle_number = 0;

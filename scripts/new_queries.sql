@@ -1,0 +1,1 @@
+CALL `ndwr`.`build_NDWR_all_patients_extract`("build",1, 10, 1,'2020-05-31',true);

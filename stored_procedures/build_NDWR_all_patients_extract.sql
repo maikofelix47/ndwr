@@ -1,5 +1,5 @@
 DELIMITER $$
-CREATE  PROCEDURE `build_NDWR_all_patients`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN end_date varchar(50) ,IN log BOOLEAN)
+CREATE  PROCEDURE `build_NDWR_all_patients_extract`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN end_date varchar(50) ,IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_all_patients_extract";
@@ -8,6 +8,7 @@ BEGIN
 					set @table_version = "ndwr_all_patients_v1.0";
                     set @query_type=query_type;
                     set @end_date = end_date;
+                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_all_patients_extract);
 
 CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
     `PatientID` INT NOT NULL,
@@ -62,10 +63,10 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
      INDEX patient_facility_id (FacilityID),
      INDEX patient_site_code (SiteCode),
      INDEX patient_date_created (DateCreated),
-     INDEX patient_patient_facility (PatientID,FacilityID)
+     INDEX patient_patient_facility (PatientID,FacilityID),
      INDEX patient_rtc (PatientID,rtc_date),
-     INDEX patient_reg_start (PatientID,arv_first_regimen_start_date)
-     INDEX patient_arv_start (PatientID,arv_first_regimen_start_date)
+     INDEX patient_reg_start (PatientID,arv_first_regimen_start_date),
+     INDEX patient_arv_start (PatientID,arv_first_regimen_start_date),
      INDEX patient_transfer_in (PatientID,arv_start_date)
 );
 
@@ -92,6 +93,27 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
 							              DEALLOCATE PREPARE s1;  
                                           
 				  end if;
+
+                  if (@query_type="sync") then
+                            select 'SYNCING..........................................';
+                            set @write_table = concat("ndwr_all_patients_temp_",queue_number);
+                            set @queue_table = "ndwr_all_patients_sync_queue";
+                            CREATE TABLE IF NOT EXISTS ndwr_all_patients_build_sync_queue (
+                                person_id INT PRIMARY KEY
+                            );                            
+                            
+                            set @last_update = null;
+                            SELECT 
+                                MAX(date_updated)
+                            INTO @last_update FROM
+                                ndwr.flat_log
+                            WHERE
+                                table_name = @table_version;
+
+                            replace into ndwr_all_patients_sync_queue
+                             (select distinct person_id from etl.hiv_monthly_report_dataset_v1_2 where date_created >= @last_update);
+
+                  end if;
                   
                   SET @person_ids_count = 0;
 				  SET @dyn_sql=CONCAT('select count(*) into @person_ids_count from ',@queue_table); 
@@ -348,6 +370,8 @@ SELECT
             @ave_cycle_length,
             'second(s)');
                         set @end = now();
+                        
+insert into ndwr.flat_log values (@start,@last_date_created,@table_version,timestampdiff(second,@start,@end));
                         
 SELECT 
     CONCAT(@table_version,

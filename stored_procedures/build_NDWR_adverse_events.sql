@@ -73,6 +73,26 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
 				   DEALLOCATE PREPARE s1;  
 
 				  end if;
+                   if (@query_type="sync") then
+                            select 'SYNCING..........................................';
+                            set @write_table = concat("ndwr_patient_adverse_events_temp_",queue_number);
+                            set @queue_table = "ndwr_patient_adverse_events_sync_queue";
+                            CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events_sync_queue (
+                                person_id INT PRIMARY KEY
+                            );                            
+                            
+                            set @last_update = null;
+                            SELECT 
+                                MAX(date_updated)
+                            INTO @last_update FROM
+                                ndwr.flat_log
+                            WHERE
+                                table_name = @table_version;
+
+                            replace into ndwr_patient_adverse_events_sync_queue
+                             (select distinct person_id from ndwr.ndwr.ndwr_all_patients where DateCreated >= @last_update);
+
+                  end if;
 
                     set @total_time=0;
                     set @cycle_number = 0;

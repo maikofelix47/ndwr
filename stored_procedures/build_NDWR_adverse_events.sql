@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
                                 table_name = @table_version;
 
                             replace into ndwr_patient_adverse_events_sync_queue
-                             (select distinct person_id from ndwr.ndwr.ndwr_all_patients where DateCreated >= @last_update);
+                             (select distinct PatientID from ndwr.ndwr.ndwr_all_patients where DateCreated >= @last_update);
 
                   end if;
 

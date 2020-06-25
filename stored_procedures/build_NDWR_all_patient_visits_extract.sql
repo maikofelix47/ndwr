@@ -88,6 +88,26 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
                    SELECT @person_ids_count AS 'num patients to build';
 
 				  end if;
+          if (@query_type="sync") then
+                            select 'SYNCING..........................................';
+                            set @write_table = concat("ndwr_all_patient_visits_extract_temp_",queue_number);
+                            set @queue_table = "ndwr_all_patient_visits_extract_sync_queue";
+                            CREATE TABLE IF NOT EXISTS ndwr_all_patient_visits_extract_sync_queue (
+                                person_id INT PRIMARY KEY
+                            );                            
+                            
+                            set @last_update = null;
+                            SELECT 
+                                MAX(date_updated)
+                            INTO @last_update FROM
+                                ndwr.flat_log
+                            WHERE
+                                table_name = @table_version;
+
+                            replace into ndwr_all_patient_visits_extract_sync_queue
+                             (select distinct person_id from etl.flat_hiv_summary_v15b where date_created >= @last_update);
+
+            end if;
 
                     set @total_time=0;
                     set @cycle_number = 0;

@@ -1,11 +1,13 @@
-CREATE  PROCEDURE `ndwr`.`build_NDWR_adverse_event`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
+DELIMITER $$
+CREATE  PROCEDURE `build_NDWR_adverse_event`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_patient_adverse_events";
-          set @total_rows_written = 0;
+                    set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_patient_adverse_events_v1.0";
-          set @query_type= query_type;
+                    set @query_type= query_type;
+                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_patient_adverse_events);
           
           
 CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
@@ -24,7 +26,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
   `AdverseEventClinicalOutcome` VARCHAR(250) NULL,
   `AdverseEventIsPregnant` VARCHAR(50) NULL,
   `AdverseEventCause` VARCHAR(250) NULL,
-  `AdverseEventRegimen` VARCHAR(250) NULL),
+  `AdverseEventRegimen` VARCHAR(250) NULL,
   `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
    INDEX event_patient_id (PatientID),
    INDEX event_patient_pk (PatientPK),
@@ -52,9 +54,10 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
 							              PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
+                                          
 
 							              SET @dyn_sql=CONCAT('delete t1 from ndwr_patient_adverse_events_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
-                            PREPARE s1 from @dyn_sql; 
+                                          PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
                                           
@@ -66,8 +69,10 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
 
                    SELECT @person_ids_count AS 'num patients to build';
                    
+                    
+				   SELECT CONCAT('Deleting patient records from ', @primary_table);
+                   
                    SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
-				   SELECT CONCAT('Deleting patient records in interim ', @primary_table);
 				   PREPARE s1 from @dyn_sql; 
 				   EXECUTE s1; 
 				   DEALLOCATE PREPARE s1;  
@@ -89,8 +94,10 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
                             WHERE
                                 table_name = @table_version;
 
-                            replace into ndwr_patient_adverse_events_sync_queue
-                             (select distinct PatientID from ndwr.ndwr.ndwr_all_patients where DateCreated >= @last_update);
+                            replace into ndwr.ndwr_patient_adverse_events_sync_queue(select distinct PatientID
+								from ndwr.ndwr_all_patients_extract
+								where DateCreated >= @last_update
+							);
 
                   end if;
 
@@ -127,13 +134,14 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
                                 NULL AS AdverseEventClinicalOutcome,
                                 NULL AS AdverseEventIsPregnant,
                                 NULL AS AdverseEventCause,
-                                NULL AS AdverseEventRegimen
+                                NULL AS AdverseEventRegimen,
+                                NULL AS DateCreated
                     
-                                FROM ndwr.ndwr_all_patients t1
-                                inner join ndwr_patient_adverse_events_build_queue__0 t3 on (t3.person_id = t1.person_id)
+                                FROM ndwr.ndwr_all_patients_extract t1
+                                inner join ndwr_patient_adverse_events_build_queue__0 t3 on (t3.person_id = t1.PatientID)
                                );');
                           
-						 SELECT CONCAT('Creating interim table .. ', @dyn_sql);
+						 SELECT CONCAT('Creating interim table .. ');
 
                           PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
@@ -222,6 +230,8 @@ SELECT
             'second(s)');
                         set @end = now();
                         
+insert into ndwr.flat_log values (@start,@last_date_created,@table_version,timestampdiff(second,@start,@end));
+                        
 SELECT 
     CONCAT(@table_version,
             ' : Time to complete: ',
@@ -229,4 +239,5 @@ SELECT
             ' minutes');
 
 
-END
+END$$
+DELIMITER ;

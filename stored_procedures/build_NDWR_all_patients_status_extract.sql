@@ -1,15 +1,15 @@
 DELIMITER $$
-CREATE  PROCEDURE `build_NDWR_all_patient_status_extract`(IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
+CREATE  PROCEDURE `build_NDWR_all_patient_status_extract`(IN query_type varchar(50), IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_all_patient_status_extract";
-          set @total_rows_written = 0;
+                    set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_all_patient_status_extract_v1.0";
-          set @query_type="build";
+                    set @query_type = query_type;
 
 
-CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_status_extract` (
+CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_status_extract` (
     `PatientPK` INT NOT NULL,
     `PatientID` INT NOT NULL,
     `FacilityId` INT NOT NULL,
@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_status_extract` (
      INDEX status_date_created (DateCreated),
      INDEX status_patient_facility (PatientID,FacilityID)
 );
+
+                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_all_patient_status_extract);
 
                     if(@query_type="build") then
 
@@ -112,15 +114,15 @@ SELECT CONCAT('Creating and populating interim status table ..');
                    t1.PatientID,
                    t1.FacilityId,
                    t1.SiteCode,
-				           t1.Emr,
+				   t1.Emr,
                    t1.Project,
                    t1.FacilityName,
-  				         if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitDescription,
-				           if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null) as ExitDate,
+				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitDescription,
+				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null) as ExitDate,
                    if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitReason,
                    null as DateCreated
                  
-                    from ndwr.ndwr_all_patients t1
+                    from ndwr.ndwr_all_patients_extract t1
                     inner join ndwr.ndwr_all_patient_status_extract_build_queue__0 t2 on (t1.PatientID = t2.person_id)
                      where t1.StatusAtCCC in('dead','ltfu','transfer_out')
 					);
@@ -210,6 +212,8 @@ SELECT
             @ave_cycle_length,
             'second(s)');
                         set @end = now();
+
+insert into ndwr.flat_log values (@start,@last_date_created,@table_version,timestampdiff(second,@start,@end));
                         
 SELECT 
     CONCAT(@table_version,

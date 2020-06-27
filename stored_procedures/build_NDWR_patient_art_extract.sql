@@ -3,10 +3,10 @@ CREATE  PROCEDURE `build_NDWR_patient_art_extract`(IN query_type varchar(50) ,IN
 BEGIN
 
 					set @primary_table := "ndwr_patient_art_extract";
-          set @total_rows_written = 0;
+                    set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_patient_art_extract_v1.0";
-          set @query_type= query_type;
+                    set @query_type= query_type;
           
           
 CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
    INDEX art_start_date (StartARTDate),
    INDEX date_created (DateCreated)
 );
+                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_patient_art_extract);
 
                     if(@query_type="build") then
 
@@ -173,12 +174,12 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
 			                        if(t1.StatusAtCCC in("dead","ltfu","transfer_out"),StatusAtCCC,null) as ExitReason,
 			                        if(t1.StatusAtCCC in("dead","ltfu","transfer_out"),t1.lastVisit,null) as ExitDate,
 							  null as DateCreated
-                              FROM ndwr.ndwr_all_patients t1
+                              FROM ndwr.ndwr_all_patients_extract t1
                               join ndwr_patient_art_extract_build_queue__0 b on (b.person_id = t1.PatientID)
                               
                               );');
                           
-						 SELECT CONCAT('Creating interim table .. ', @dyn_sql);
+						 SELECT CONCAT('Creating interim table .. ');
 
                           PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
@@ -266,6 +267,8 @@ SELECT
             @ave_cycle_length,
             'second(s)');
                         set @end = now();
+
+insert into ndwr.flat_log values (@start,@last_date_created,@table_version,timestampdiff(second,@start,@end));
                         
 SELECT 
     CONCAT(@table_version,

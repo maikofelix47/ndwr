@@ -1,11 +1,12 @@
-CREATE  PROCEDURE `ndwr`.`build_NDWR_pharmacy`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
+DELIMITER $$
+CREATE  PROCEDURE `build_NDWR_pharmacy`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_pharmacy";
-          set @total_rows_written = 0;
+                    set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_pharmacy_v1.0";
-          set @query_type= query_type;
+                    set @query_type= query_type;
           
           
 CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
    INDEX dispense_date_location (DispenseDate,FacilityID),
    INDEX date_created (DateCreated)
 );
+                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_pharmacy);
 
                     if(@query_type="build") then
 
@@ -134,7 +136,7 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
                                 inner join ndwr_pharmacy_build_queue__0 t3 on (t3.person_id = t1.person_id)
                                 where t1.cur_arv_meds is not null);');
                           
-						 SELECT CONCAT('Creating interim table .. ', @dyn_sql);
+						 SELECT CONCAT('Creating interim table');
 
                           PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
@@ -222,6 +224,8 @@ SELECT
             @ave_cycle_length,
             'second(s)');
                         set @end = now();
+
+insert into ndwr.flat_log values (@start,@last_date_created,@table_version,timestampdiff(second,@start,@end));
                         
 SELECT 
     CONCAT(@table_version,
@@ -230,4 +234,5 @@ SELECT
             ' minutes');
 
 
-END
+END$$
+DELIMITER ;

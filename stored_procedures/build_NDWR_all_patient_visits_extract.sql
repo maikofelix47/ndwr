@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
                            if(e.edd,date_add(e.edd, interval -280 day),null) AS LMP,
                            e.edd as EDD,
                            0 AS Height,
-						               0 AS Weight,
+						   0 AS Weight,
                            0 AS BP,
                            null AS OI,
                            null AS OIDate,

@@ -3,10 +3,10 @@ CREATE PROCEDURE `build_NDWR_ndwr_patient_labs_extract`(IN query_type varchar(50
 BEGIN
 
 					set @primary_table := "ndwr_patient_labs_extract";
-          set @total_rows_written = 0;
+                    set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_patient_labs_extract_v1.0";
-          set @query_type= query_type;
+                    set @query_type= query_type;
           
           
 CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
    INDEX ordered_by_date_location (OrderedbyDate,FacilityID),
    INDEX date_created (DateCreated)
 );
+
+                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_patient_labs_extract);
 
                     if(@query_type="build") then
 
@@ -227,7 +229,7 @@ SELECT @total_rows_written;
                            null as DateCreated
                           
                           from ndwr_patient_labs_extract_interim i
-                          left join ndwr.ndwr_all_patients_extract t on (t.PatientID = i.PatientID)
+                          join ndwr.ndwr_all_patients_extract t on (t.PatientID = i.PatientID)
                           
                           )');
 
@@ -303,6 +305,8 @@ SELECT
             @ave_cycle_length,
             'second(s)');
                         set @end = now();
+
+insert into ndwr.flat_log values (@start,@last_date_created,@table_version,timestampdiff(second,@start,@end));
                         
 SELECT 
     CONCAT(@table_version,

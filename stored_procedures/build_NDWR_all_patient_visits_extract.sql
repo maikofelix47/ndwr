@@ -1,12 +1,12 @@
 DELIMITER $$
-CREATE  PROCEDURE `build_NDWR_all_patient_visits_extract`(IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
+CREATE  PROCEDURE `build_NDWR_all_patient_visits_extract`(IN query_type varchar(50) , IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_all_patient_visits_extract";
-          set @total_rows_written = 0;
+                    set @total_rows_written = 0;
 					set @start = now();
 					set @table_version = "ndwr_all_patient_visits_extract_v1.0";
-          set @query_type="build";
+                    set @query_type = query_type;
 
 CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
   `PatientPK` INT NOT NULL,
@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
    INDEX visit_patient_visit (PatientID,VisitDate),
    INDEX visit_patient_facility (PatientID,FacilityID)
   );
+
+                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_all_patient_visits_extract);
 
                     if(@query_type="build") then
 
@@ -160,11 +162,17 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
                            if(e.edd,'Yes',null) AS Pregnant,
                            if(e.edd,date_add(e.edd, interval -280 day),null) AS LMP,
                            e.edd as EDD,
-                           0 AS Height,
-						   0 AS Weight,
-                           0 AS BP,
-                           null AS OI,
-                           null AS OIDate,
+                           v.Height AS Height,
+                           v.Weight AS Weight,
+                           concat(v.systolic_bp,'/',v.diastolic_bp) AS BP,
+                           case
+	                         when o.obs regexp "!!6042=" then replace(replace((substring_index(substring(o.obs,locate("!!6042=",o.obs)),'##',ROUND ((LENGTH(o.obs) - LENGTH( REPLACE ( o.obs, "!!6042=", "") ) ) / LENGTH("!!6042=") ))),"!!6042=",""),"!!","")
+	                         else null
+	                       end as OI,
+	                       case
+	                         when o.obs regexp "!!6042=" then o.encounter_datetime
+	                         else null
+	                       end as OIDate,
                            e.cur_arv_adherence AS Adherence,
                            e.cur_arv_adherence AS AdherenceCategory,
                            null as SubstitutionFirstlineRegimenDate,
@@ -176,7 +184,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
                            IF(e.contraceptive_method,e.contraceptive_method,null) AS FamilyPlanningMethod,
                            e.contraceptive_method AS PwP,
                            if(e.edd,datediff(e.encounter_datetime,date_add(e.edd, interval -280 day)),null) AS GestationAge,
-						               case
+						   case
                              when e.rtc_date IS NOT NULL then e.rtc_date
                              ELSE DATE_ADD(e.encounter_datetime, INTERVAL 21 DAY)
                            end as NextAppointmentDate,
@@ -189,6 +197,8 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
                            FROM etl.flat_hiv_summary_v15b e 
                            inner join ndwr_all_patient_visits_extract_build_queue__0 t3 on (t3.person_id = e.person_id)
                            left join ndwr.mfl_codes mfl on (mfl.location_id = e.location_id)
+                           LEFT JOIN etl.flat_vitals v ON (v.person_id = e.person_id AND v.encounter_datetime = e.encounter_datetime)
+                           LEFT JOIN etl.flat_obs o on (o.encounter_datetime=e.encounter_datetime and e.person_id=o.person_id)
                        ); 
                           
 						 SELECT CONCAT('Created interim table ..');
@@ -276,6 +286,8 @@ SELECT
             @ave_cycle_length,
             'second(s)');
                         set @end = now();
+                        
+insert into ndwr.flat_log values (@start,@last_date_created,@table_version,timestampdiff(second,@start,@end));
                         
 SELECT 
     CONCAT(@table_version,

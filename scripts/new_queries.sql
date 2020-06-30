@@ -23,3 +23,8 @@ replace into ndwr.ndwr_patient_labs_extract_build_queue (
 select distinct PatientID from ndwr.ndwr_all_patients_extract
 );
 CALL `ndwr`.`build_NDWR_ndwr_patient_labs_extract`("build",1,1,1,true);
+###################################
+replace into ndwr.ndwr_all_patient_visits_extract_build_queue (
+select distinct PatientID from ndwr.ndwr_all_patients_extract
+);
+CALL `ndwr`.`build_NDWR_all_patient_visits_extract`("build",1,1,1,true);

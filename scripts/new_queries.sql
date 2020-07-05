@@ -28,3 +28,9 @@ replace into ndwr.ndwr_all_patient_visits_extract_build_queue (
 select distinct PatientID from ndwr.ndwr_all_patients_extract
 );
 CALL `ndwr`.`build_NDWR_all_patient_visits_extract`("build",1,1,1,true);
+##################################
+use ndwr;
+replace into ndwr.ndwr_patient_baselines_extract_build_queue (
+   select distinct s.person_id from etl.flat_hiv_summary_v15b s where	(s.arv_first_regimen_start_date <> ''	or s.enrollment_date<>'')	
+);
+CALL `ndwr`.`build_ndwr_patient_baselines_extract`("build",1,1,true);

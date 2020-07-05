@@ -1,5 +1,5 @@
 DELIMITER $$
-CREATE  PROCEDURE `build_ndwr_patient_baselines_extract`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN log BOOLEAN)
+CREATE PROCEDURE `build_ndwr_patient_baselines_extract`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_patient_baselines_extract";
@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
    INDEX baseline_date_created (DateCreated),
    INDEX baseline_patient_facility (PatientID,FacilityID)
   );
+
+	                  set @last_date_created = (select max(DateCreated) from ndwr.ndwr_patient_baselines_extract);
 
                     if(@query_type="build") then
 
@@ -128,7 +130,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
                           
                 SELECT CONCAT("Writing to ndwr_base_line_0 ..");
                          
-   							replace into ndwr_base_line_0(			
+   							create temporary table ndwr_base_line_0(			
    							SELECT 
    							distinct
    							s.person_id,
@@ -218,7 +220,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
                   set @cd4_percent_at_arv_start_date  := null ;	
 
                   drop temporary table if exists base_temp_1;
-                  replace into base_temp_1(
+                  create temporary table base_temp_1(
  		              SELECT  distinct t1.person_id,
  
  							case							   
@@ -520,7 +522,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
 
               drop temporary table if exists patient_base_line;
                           
-			  CREATE temporary TABLE patient_base_line(
+			  CREATE temporary TABLE  if not exists patient_base_line(
  							  select
                  b.person_id as person_id,
                  @lastCd4 as lastCd4,
@@ -619,7 +621,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
                          b.v_l_date_after_12month_arv as `twelveMonthVLDate`,
                          if(b.lastCd4_date,b.lastCd4_date,b.v_l_date_after_12month_arv) as VisitDate
 						 from patient_base_line b
-						 inner join ndwr.ndwr_all_patients t1 on (t1.PatientID = b.person_id)
+						 inner join ndwr.ndwr_all_patients_extract t1 on (t1.PatientID = b.person_id)
 						 inner join ndwr_patient_baselines_extract_build_queue__0 q on (q.person_id = b.person_id)
                                  );
 
@@ -746,6 +748,8 @@ SELECT
             @ave_cycle_length,
             'second(s)');
                         set @end = now();
+
+insert into ndwr.flat_log values (@start,@last_date_created,@table_version,timestampdiff(second,@start,@end));
                         
 SELECT 
     CONCAT(@table_version,

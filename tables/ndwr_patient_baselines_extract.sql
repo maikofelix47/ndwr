@@ -1,4 +1,4 @@
-CREATE TABLE `ndwr`.`ndwr_patient_baselines_extract` (
+CREATE TABLE IF NOT EXISTS `ndwr_patient_baselines_extract` (
   `PatientPK` INT NOT NULL,
   `PatientID` INT NOT NULL,
   `FacilityID` INT NULL,
@@ -26,4 +26,12 @@ CREATE TABLE `ndwr`.`ndwr_patient_baselines_extract` (
   `m12CD4` INT NULL,
   `m12CD4Date` DATETIME NULL,
   `m6CD4` INT NULL,
-  `m6CD4Date` DATETIME NULL);
+  `m6CD4Date` DATETIME NULL,
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	 INDEX baseline_patient_id (PatientID),
+   INDEX baseline_patient_pk (PatientPK),
+   INDEX baseline_facility_id (FacilityID),
+   INDEX baselinne_site_code (SiteCode),
+   INDEX baseline_date_created (DateCreated),
+   INDEX baseline_patient_facility (PatientID,FacilityID)
+  );

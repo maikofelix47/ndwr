@@ -1,4 +1,4 @@
-CREATE TABLE `ndwr`.`ndwr_patient_art_extract` (
+CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
   `PatientPK` INT NOT NULL,
   `PatientID` INT NOT NULL,
   `FacilityID` INT NOT NULL,
@@ -27,4 +27,14 @@ CREATE TABLE `ndwr`.`ndwr_patient_art_extract` (
   `Provider` VARCHAR(50) NULL,
   `LastVisit` DATETIME NULL,
   `ExitReason` VARCHAR(100) NULL,
-  `ExitDate` DATETIME NULL);
+  `ExitDate` DATETIME NULL,
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   INDEX patient_art_start_date (PatientID , StartARTDate),
+   INDEX patient_art_end_date (PatientID , StartARTDate),
+   INDEX patient_id (PatientID),
+   INDEX facility_id (FacilityID),
+   INDEX site_code (SiteCode),
+   INDEX patient_pk (PatientPK),
+   INDEX art_start_date (StartARTDate),
+   INDEX date_created (DateCreated)
+);

@@ -1,5 +1,5 @@
 use ndwr;
-CREATE TABLE `ndwr`.`ndwr_all_patients` (
+CREATE TABLE `ndwr_all_patients` (
   `patientid` INT NOT NULL,
   `PatientPK` INT NOT NULL,
   `SiteCode` INT NOT NULL,

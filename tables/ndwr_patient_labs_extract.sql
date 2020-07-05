@@ -1,4 +1,4 @@
-CREATE TABLE `ndwr`.`ndwr_patient_labs_extract` (
+CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
   `PatientPK` INT NOT NULL,
   `PatientID` INT NOT NULL,
   `FacilityID` INT NULL,
@@ -13,5 +13,13 @@ CREATE TABLE `ndwr`.`ndwr_patient_labs_extract` (
   `TestName` VARCHAR(200) NULL,
   `EnrollmentTest` VARCHAR(50) NULL,
   `TestResult` INT NOT NULL,
-  `Reason` VARCHAR(200) NULL
-  );
+  `Reason` VARCHAR(200) NULL,
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY VisitID (VisitID),
+   INDEX patient_order_date (PatientID , OrderedbyDate),
+   INDEX patient_id (PatientID),
+   INDEX patient_pk (PatientPK),
+   INDEX dispense_date (OrderedbyDate),
+   INDEX ordered_by_date_location (OrderedbyDate,FacilityID),
+   INDEX date_created (DateCreated)
+);

@@ -1,4 +1,4 @@
-CREATE TABLE `ndwr`.`ndwr_all_patient_visits_extract` (
+CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
   `PatientPK` INT NOT NULL,
   `PatientID` INT NOT NULL,
   `FacilityID` INT NULL,
@@ -35,4 +35,14 @@ CREATE TABLE `ndwr`.`ndwr_all_patient_visits_extract` (
   `DifferentiatedCare` VARCHAR(50) NULL,
   `KeyPopulationType` VARCHAR(50) NULL,
   `PopulationType` VARCHAR(50) NULL,
-  `StabilityAssessment` VARCHAR(50) NULL);
+  `StabilityAssessment` VARCHAR(50) NULL,
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   INDEX visit_patient_id (PatientID),
+   INDEX visit_patient_pk (PatientPK),
+   INDEX visit_facility_id (FacilityID),
+   INDEX visit_site_code (SiteCode),
+   INDEX visit_visit_date (VisitDate),
+   INDEX visit_date_created (DateCreated),
+   INDEX visit_patient_visit (PatientID,VisitDate),
+   INDEX visit_patient_facility (PatientID,FacilityID)
+  );

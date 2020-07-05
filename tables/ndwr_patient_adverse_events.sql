@@ -1,4 +1,4 @@
-CREATE TABLE `ndwr`.`ndwr_patient_adverse_events` (
+CREATE TABLE IF NOT EXISTS ndwr_patient_adverse_events (
   `PatientPK` INT NOT NULL,
   `PatientID` INT NULL,
   `FacilityID` INT NOT NULL,
@@ -14,4 +14,14 @@ CREATE TABLE `ndwr`.`ndwr_patient_adverse_events` (
   `AdverseEventClinicalOutcome` VARCHAR(250) NULL,
   `AdverseEventIsPregnant` VARCHAR(50) NULL,
   `AdverseEventCause` VARCHAR(250) NULL,
-  `AdverseEventRegimen` VARCHAR(250) NULL);
+  `AdverseEventRegimen` VARCHAR(250) NULL,
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   INDEX event_patient_id (PatientID),
+   INDEX event_patient_pk (PatientPK),
+   INDEX event_facility_id (FacilityID),
+   INDEX event_site_code (SiteCode),
+   INDEX event_visit_date (VisitDate),
+   INDEX event_date_created (DateCreated),
+   INDEX event_patient_visit (PatientID,VisitDate),
+   INDEX event_patient_facility (PatientID,FacilityID)
+);

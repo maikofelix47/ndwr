@@ -1,11 +1,11 @@
-CREATE TABLE `ndwr`.`ndwr_patient_pharmacy` (
+CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
   `PatientPK` INT NOT NULL,
   `PatientID` INT NOT NULL,
-  `FacilityID` INT NULL,
-  `SiteCode` INT NULL,
+  `FacilityID` INT NOT NULL,
+  `SiteCode` INT NOT NULL,
   `Emr` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
-  `VisitID` INT NULL,
+  `VisitID` INT NOT NULL,
   `Drug` VARCHAR(100) NULL,
   `Provider` VARCHAR(50) NULL,
   `DispenseDate` DATETIME NULL,
@@ -14,4 +14,13 @@ CREATE TABLE `ndwr`.`ndwr_patient_pharmacy` (
   `TreatmentType` VARCHAR(100) NULL,
   `RegimenLine` VARCHAR(200) NULL,
   `PeriodTaken` VARCHAR(100) NULL,
-  `ProphylaxisType` VARCHAR(100) NULL);
+  `ProphylaxisType` VARCHAR(100) NULL,
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   PRIMARY KEY VisitID (VisitID),
+   INDEX patient_date (PatientID , DispenseDate),
+   INDEX patient_id (PatientID),
+   INDEX patient_pk (PatientPK),
+   INDEX dispense_date (DispenseDate),
+   INDEX dispense_date_location (DispenseDate,FacilityID),
+   INDEX date_created (DateCreated)
+);

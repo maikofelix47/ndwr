@@ -9,6 +9,7 @@ BEGIN
                     set @query_type=query_type;
                     set @end_date = end_date;
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_all_patients_extract);
+                    set @endDate := LAST_DAY(CURDATE());
 
 CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
     `PatientID` INT NOT NULL,
@@ -98,7 +99,7 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
                             select 'SYNCING..........................................';
                             set @write_table = concat("ndwr_all_patients_temp_",queue_number);
                             set @queue_table = "ndwr_all_patients_sync_queue";
-                            CREATE TABLE IF NOT EXISTS ndwr_all_patients_build_sync_queue (
+                            CREATE TABLE IF NOT EXISTS ndwr_all_patients_sync_queue (
                                 person_id INT PRIMARY KEY
                             );                            
                             
@@ -111,7 +112,8 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
                                 table_name = @table_version;
 
                             replace into ndwr_all_patients_sync_queue
-                             (select distinct person_id from etl.hiv_monthly_report_dataset_v1_2 where date_created >= @last_update);
+                             (select distinct person_id from etl.flat_hiv_summary_v15b where is_clinical_encounter = 1
+                                AND next_clinical_datetime_hiv IS NULL date_created >= @last_update);
 
                   end if;
                   
@@ -150,13 +152,14 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
 						  
                           drop temporary table if exists ndwr_all_patients_interim;
                           
-CREATE temporary TABLE ndwr_all_patients_interim (SELECT 
-    DISTINCT t1.person_id AS PatientID,
+CREATE temporary TABLE ndwr_all_patients_interim (
+    SELECT DISTINCT
+    t1.person_id AS PatientID,
     t1.person_id AS PatientPK,
-    mfl.mfl_code as SiteCode,
-    mfl.Facility AS FacilityName,             
-    gender AS Gender,
-    birthdate AS DOB,
+    mfl.mfl_code AS SiteCode,
+    mfl.Facility AS FacilityName,
+    p.gender AS Gender,
+    p.birthdate AS DOB,
     CASE
         WHEN
             DATE(t1.enrollment_date) = '1900-01-01'
@@ -204,12 +207,12 @@ CREATE temporary TABLE ndwr_all_patients_interim (SELECT
     NULL AS RegistrationAtPMTCT,
     NULL AS RegistrationAtTBClinic,
     NULL AS PatientSource,
-    clinic_county AS Region,
+    l.state_province AS Region,
     NULL AS District,
     NULL AS Village,
     NULL AS ContactRelation,
     CASE
-        WHEN @last_encounter_date IS NULL THEN @last_encounter_date:=t1.encounter_date
+        WHEN @last_encounter_date IS NULL THEN @last_encounter_date:= DATE(t1.encounter_datetime)
         ELSE @last_encounter_date
     END AS LastVisit,
     NULL AS MaritalStatus,
@@ -240,11 +243,15 @@ CREATE temporary TABLE ndwr_all_patients_interim (SELECT
     NULL AS PreviousARTStartDate,
     'AMRS' AS Emr,
     'Ampath Plus' AS Project,
-    mfl.mfl_code as FacilityID,
-    CASE
-        WHEN @status IS NULL THEN @status:=t1.status
-        ELSE @status
-    END AS StatusAtCCC,
+    mfl.mfl_code AS FacilityID,
+    case
+		when date_format(@endDate, "%Y-%m-01") > t1.death_date then @status := "dead"
+		when date_format(@endDate, "%Y-%m-01") > date_format(transfer_out_date, "%Y-%m-01") then @status := "transfer_out"
+		when timestampdiff(day,if(rtc_date,rtc_date,date_add(encounter_datetime, interval 28 day)),@endDate) <= 28 then @status := "active"
+		when timestampdiff(day,if(rtc_date,rtc_date,date_add(encounter_datetime, interval 28 day)),@endDate) between 29 and 90 then @status := "defaulter"
+		when timestampdiff(day,if(rtc_date,rtc_date,date_add(encounter_datetime, interval 28 day)),@endDate) > 90 then @status := "ltfu"
+		else @status := "unknown"
+	end as  StatusAtCCC,
     NULL AS StatusAtPMTCT,
     NULL AS StatusAtTBClinic,
     NULL AS SatelliteName,
@@ -275,15 +282,21 @@ CREATE temporary TABLE ndwr_all_patients_interim (SELECT
     NULL AS PatientType,
     'GeneralPopulation' AS PopulationType,
     NULL AS TransferInDate,
-    null as DateCreated
-    FROM
-    etl.hiv_monthly_report_dataset_v1_2 t1
-        INNER JOIN
+    NULL AS DateCreated
+FROM
+    etl.flat_hiv_summary_v15b t1
+    INNER JOIN
     ndwr_all_patients_build_queue__0 t3 ON (t3.person_id = t1.person_id)
-    left join ndwr.mfl_codes mfl on (mfl.location_id = t1.location_id)
+        JOIN
+    amrs.person p ON (p.person_id = t1.person_id)
+        LEFT JOIN
+    ndwr.mfl_codes mfl ON (mfl.location_id = t1.location_id)
+        JOIN
+    amrs.location l ON (l.location_id = t1.location_id)
 WHERE
-    enddate = @end_date
-ORDER BY t1.encounter_date DESC);
+    t1.is_clinical_encounter = 1
+        AND t1.next_clinical_datetime_hiv IS NULL
+ORDER BY t1.encounter_datetime DESC);
 
                         
                           

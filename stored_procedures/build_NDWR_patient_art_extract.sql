@@ -11,9 +11,9 @@ BEGIN
           
 CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
   `PatientPK` INT NOT NULL,
+  `SiteCode` INT NULL,
   `PatientID` INT NOT NULL,
   `FacilityID` INT NOT NULL,
-  `SiteCode` INT NULL,
   `Emr` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
   `FacilityName` VARCHAR(50) NULL,
@@ -130,9 +130,9 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
                          
                           SET @dyn_sql=CONCAT('create temporary table ndwr_patient_art_extract_interim (SELECT  distinct	
                                t1.PatientPK,
+                               t1.SiteCode,
                                t1.PatientID,
                                t1.FacilityID,
-                               t1.SiteCode,
                                t1.Emr,
 			                         t1.Project,
                                t1.FacilityName,

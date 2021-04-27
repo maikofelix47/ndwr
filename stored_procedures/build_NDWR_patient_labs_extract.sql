@@ -1,5 +1,5 @@
 DELIMITER $$
-CREATE PROCEDURE `build_NDWR_ndwr_patient_labs_extract`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
+CREATE  PROCEDURE `build_NDWR_ndwr_patient_labs_extract`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_patient_labs_extract";
@@ -79,10 +79,16 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
                   if (@query_type="sync") then
                             select 'SYNCING..........................................';
                             set @write_table = concat("ndwr_patient_labs_extract_temp_",queue_number);
+                            
+                            SET @dyn_sql=CONCAT('Create table if not exists ',@write_table,' like ',@primary_table);
+                            PREPARE s1 from @dyn_sql; 
+                            EXECUTE s1; 
+                            DEALLOCATE PREPARE s1;  
+                            
                             set @queue_table = "ndwr_patient_labs_extract_sync_queue";
                             CREATE TABLE IF NOT EXISTS ndwr.ndwr_patient_labs_extract_sync_queue (
-                                person_id INT(6) UNSIGNED,
-                                INDEX labs_sync_person_id (person_id)
+                                 person_id INT(6) UNSIGNED,
+                                 INDEX labs_sync_person_id (person_id)
                             );                            
                             
                             set @last_update = null;
@@ -93,26 +99,34 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
                             WHERE
                                 table_name = @table_version;
 
-                            replace into ndwr_patient_labs_extract_sync_queue
+                            replace into ndwr.ndwr_patient_labs_extract_sync_queue
                              (select distinct person_id from etl.flat_lab_obs 
                              where 
                              obs REGEXP '!!5497=[0-9]'
                              AND DATE(max_date_created) >= @last_update)
                              ;
 
-                             replace into ndwr_patient_labs_extract_sync_queue
+                             replace into ndwr.ndwr_patient_labs_extract_sync_queue
                              (select distinct person_id from etl.flat_lab_obs 
                              where 
                              obs REGEXP '!!730=[0-9]'
                              and DATE(max_date_created) >= @last_update)
                              ;
 
-                             replace into ndwr_patient_labs_extract_sync_queue
+                             replace into ndwr.ndwr_patient_labs_extract_sync_queue
                              (select distinct person_id from etl.flat_lab_obs 
                              where 
                              obs REGEXP '!!856=[0-9]'
                              and DATE(max_date_created) >= @last_update)
                              ;
+                             
+                             SET @person_ids_count = 0;
+							 SET @dyn_sql=CONCAT('select count(*) into @person_ids_count from ',@queue_table); 
+							 PREPARE s1 from @dyn_sql; 
+							 EXECUTE s1; 
+							  DEALLOCATE PREPARE s1;
+
+							 SELECT @person_ids_count AS 'num patients to sync';
 
                  end if;
 

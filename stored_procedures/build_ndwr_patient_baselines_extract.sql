@@ -1,5 +1,5 @@
 DELIMITER $$
-CREATE PROCEDURE `build_ndwr_patient_baselines_extract`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN log BOOLEAN)
+CREATE  PROCEDURE `build_ndwr_patient_baselines_extract`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_patient_baselines_extract";
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
                              (select distinct person_id from etl.flat_hiv_summary_v15b where date_created >= @last_update);
 
 														replace into ndwr_patient_baselines_extract_sync_queue
-                             (select distinct person_id from etl.flat_lab_obs where max_date_created >= @last_update);
+                             (select distinct person_id from etl.flat_lab_obs where date_created >= @last_update);
 
                       end if;
 

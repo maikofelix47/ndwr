@@ -93,9 +93,15 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
           if (@query_type="sync") then
                             select 'SYNCING..........................................';
                             set @write_table = concat("ndwr_all_patient_visits_extract_temp_",queue_number);
+							SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
+							PREPARE s1 from @dyn_sql; 
+							EXECUTE s1; 
+							DEALLOCATE PREPARE s1;  
+                                          
                             set @queue_table = "ndwr_all_patient_visits_extract_sync_queue";
-                            CREATE TABLE IF NOT EXISTS ndwr_all_patient_visits_extract_sync_queue (
-                                person_id INT PRIMARY KEY
+                            CREATE TABLE IF NOT EXISTS ndwr.ndwr_all_patient_visits_extract_sync_queue (
+                                person_id INT(6) UNSIGNED,
+                                INDEX visits_sync_person_id (person_id)
                             );                            
                             
                             set @last_update = null;
@@ -106,8 +112,16 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_visits_extract` (
                             WHERE
                                 table_name = @table_version;
 
-                            replace into ndwr_all_patient_visits_extract_sync_queue
+                            replace into ndwr.ndwr_all_patient_visits_extract_sync_queue
                              (select distinct person_id from etl.flat_hiv_summary_v15b where date_created >= @last_update);
+                             
+                             SET @person_ids_count = 0;
+							 SET @dyn_sql=CONCAT('select count(*) into @person_ids_count from ',@queue_table); 
+							 PREPARE s1 from @dyn_sql; 
+							 EXECUTE s1; 
+							 DEALLOCATE PREPARE s1;
+
+							 SELECT @person_ids_count AS 'num patients to sync';
 
             end if;
 

@@ -98,9 +98,16 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
                   if (@query_type="sync") then
                             select 'SYNCING..........................................';
                             set @write_table = concat("ndwr_all_patients_temp_",queue_number);
+                            
+                            SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
+							PREPARE s1 from @dyn_sql; 
+							EXECUTE s1; 
+							DEALLOCATE PREPARE s1;
+                            
                             set @queue_table = "ndwr_all_patients_sync_queue";
-                            CREATE TABLE IF NOT EXISTS ndwr_all_patients_sync_queue (
-                                person_id INT PRIMARY KEY
+                            CREATE TABLE IF NOT EXISTS ndwr.ndwr_all_patients_sync_queue (
+                                person_id INT(6) UNSIGNED,
+                                INDEX all_patients_sync_person_id (person_id)
                             );                            
                             
                             set @last_update = null;
@@ -112,8 +119,16 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
                                 table_name = @table_version;
 
                             replace into ndwr_all_patients_sync_queue
-                             (select distinct person_id from etl.flat_hiv_summary_v15b where is_clinical_encounter = 1
-                                AND next_clinical_datetime_hiv IS NULL date_created >= @last_update);
+                             (select distinct person_id from etl.flat_hiv_summary_v15b WHERE
+                   is_clinical_encounter = 1 AND next_clinical_datetime_hiv IS NULL and date_created >= @last_update);
+                   
+                   replace into ndwr.ndwr_all_patients_sync_queue(
+					SELECT 
+					DISTINCT PatientID
+					FROM
+						ndwr.ndwr_all_patients_extract
+					WHERE
+						DATE(DateCreated) < DATE(DATE_FORMAT(CURDATE(), '%Y-%m-01')));
 
                   end if;
                   
@@ -211,10 +226,7 @@ CREATE temporary TABLE ndwr_all_patients_interim (
     NULL AS District,
     NULL AS Village,
     NULL AS ContactRelation,
-    CASE
-        WHEN @last_encounter_date IS NULL THEN @last_encounter_date:= DATE(t1.encounter_datetime)
-        ELSE @last_encounter_date
-    END AS LastVisit,
+	DATE(t1.encounter_datetime) AS LastVisit,
     NULL AS MaritalStatus,
     NULL AS EducationLevel,
     CASE
@@ -258,10 +270,7 @@ CREATE temporary TABLE ndwr_all_patients_interim (
     IF(t1.arv_first_regimen_start_date,
         t1.arv_first_regimen_start_date,
         t1.enrollment_date) AS arv_first_regimen_start_date,
-    CASE
-        WHEN @rtc_date IS NULL THEN @rtc_date:=t1.rtc_date
-        ELSE @rtc_date
-    END AS rtc_date,
+	t1.rtc_date as rtc_date,
     IF(t1.arv_first_regimen,
         etl.get_arv_names(t1.arv_first_regimen),
         'unknown') AS arv_first_regimen,

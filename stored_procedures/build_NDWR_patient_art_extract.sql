@@ -154,19 +154,10 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
                               etl.get_arv_names(t1.arv_first_regimen) as PreviousARTRegimen,
                               t1.arv_start_date as StartARTAtThisFacility,
 			                        t1.arv_first_regimen as StartRegimen,
-                              case
-   								              when  @cur_arv_line_strict is null then @cur_arv_line_strict := t1.cur_arv_line_strict
-   								              else @cur_arv_line_strict 
-   			                      end as StartRegimenLine,
+							 t1.cur_arv_line_strict as StartRegimenLine,
                               t1.lastVisit as LastARTDate,
-                              case
-					                        when  @cur_arv_meds is null then @cur_arv_meds := t1.cur_arv_meds
-					                        else @cur_arv_meds 
-   			                      end as LastRegimen,
-                              case
-					                      when  @cur_arv_line_strict is null then @cur_arv_line_strict := t1.cur_arv_line_strict
-					                      else @cur_arv_line_strict
-   			                      end as LastRegimenLine,
+							  t1.cur_arv_meds as LastRegimen,
+							  etl.get_arv_names(t1.cur_arv_line_strict) as LastRegimenLine,
                               DATEDIFF(t1.rtc_date,t1.lastVisit) as Duration,
 			                        t1.rtc_date as ExpectedReturn,
                               "Government" as Provider,

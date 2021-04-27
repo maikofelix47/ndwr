@@ -1,4 +1,5 @@
 CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
+    `PKV` INT NOT NULL,
     `PatientID` INT NOT NULL,
     `PatientPK` INT NOT NULL,
     `SiteCode` INT NOT NULL,

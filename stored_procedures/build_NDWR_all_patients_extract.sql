@@ -5,16 +5,20 @@ BEGIN
 					set @primary_table := "ndwr_all_patients_extract";
                     set @total_rows_written = 0;
 					set @start = now();
-					set @table_version = "ndwr_all_patients_v1.0";
+					set @table_version = "ndwr_all_patients_v1.1";
                     set @query_type=query_type;
                     set @end_date = end_date;
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_all_patients_extract);
                     set @endDate := LAST_DAY(CURDATE());
 
 CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
-    `PatientID` INT NOT NULL,
+    `PKV` INT NULL,
     `PatientPK` INT NOT NULL,
     `SiteCode` INT NOT NULL,
+    `PatientID` INT NOT NULL,
+    `FacilityID` INT NULL,
+    `Emr` VARCHAR(50) NULL,
+    `Project` VARCHAR(50) NULL,
     `FacilityName` VARCHAR(100) NULL,
     `Gender` VARCHAR(10) NULL,
     `DOB` DATETIME NULL,
@@ -33,20 +37,10 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
     `DateConfirmedHIVPositive` DATETIME NULL,
     `PreviousARTExposure` VARCHAR(50) NULL,
     `PreviousARTStartDate` DATETIME NULL,
-    `Emr` VARCHAR(50) NULL,
-    `Project` VARCHAR(50) NULL,
-    `FacilityID` INT NULL,
     `StatusAtCCC` VARCHAR(100) NULL,
     `StatusAtPMTCT` VARCHAR(100) NULL,
     `StatusAtTBClinic` VARCHAR(100) NULL,
-    `SatelliteName` VARCHAR(100) NULL,
-    `arv_first_regimen_start_date` DATE NULL,
-    `rtc_date` DATE NULL,
-    `arv_first_regimen` VARCHAR(200) NULL,
-    `arv_start_date` DATE NULL,
-    `cur_arv_meds` VARCHAR(200) NULL,
-    `cur_arv_line_strict` VARCHAR(250) NULL,
-    `Inschool` VARCHAR(100) NULL,
+    'Inschool' VARCHAR(10) NULL,
     `KeyPopulationType` VARCHAR(100) NULL,
     `Orphan` VARCHAR(100) NULL,
     `PatientResidentCounty` VARCHAR(100) NULL,
@@ -58,6 +52,7 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
     `PatientType` VARCHAR(100) NULL,
     `PopulationType` VARCHAR(100) NULL,
     `TransferInDate` DATETIME NULL,
+    `Occupation` VARCHAR(100) NULL,
     `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
      INDEX patient_patient_id (PatientID),
      INDEX patient_patient_pk (PatientPK),
@@ -168,10 +163,14 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
                           drop temporary table if exists ndwr_all_patients_interim;
                           
 CREATE temporary TABLE ndwr_all_patients_interim (
-    SELECT DISTINCT
-    t1.person_id AS PatientID,
-    t1.person_id AS PatientPK,
-    mfl.mfl_code AS SiteCode,
+    SELECT
+    null as 'PKV',
+    t1.person_id AS 'PatientPK',
+    mfl.mfl_code AS 'SiteCode',
+    t1.person_id AS 'PatientID',
+    mfl.mfl_code AS 'FacilityID',
+    'AMRS' AS Emr,
+    'Ampath Plus' AS 'Project',
     mfl.Facility AS FacilityName,
     p.gender AS Gender,
     p.birthdate AS DOB,
@@ -196,7 +195,7 @@ CREATE temporary TABLE ndwr_all_patients_interim (
                 AND DATE(birthdate) <= DATE(t1.enrollment_date)
         THEN
             t1.enrollment_date
-    END AS RegistrationDate,
+    END AS 'RegistrationDate',
     CASE
         WHEN
             DATE(t1.enrollment_date) = '1900-01-01'
@@ -218,17 +217,17 @@ CREATE temporary TABLE ndwr_all_patients_interim (
                 AND DATE(birthdate) <= DATE(t1.enrollment_date)
         THEN
             t1.enrollment_date
-    END AS RegistrationAtCCC,
-    NULL AS RegistrationAtPMTCT,
-    NULL AS RegistrationAtTBClinic,
-    NULL AS PatientSource,
-    l.state_province AS Region,
-    NULL AS District,
-    NULL AS Village,
-    NULL AS ContactRelation,
-	DATE(t1.encounter_datetime) AS LastVisit,
-    NULL AS MaritalStatus,
-    NULL AS EducationLevel,
+    END AS 'RegistrationAtCCC',
+    NULL AS 'RegistrationAtPMTCT',
+    NULL AS 'RegistrationAtTBClinic',
+    NULL AS 'PatientSource',
+    l.state_province AS 'Region',
+    NULL AS 'District',
+    NULL AS 'Village',
+    NULL AS 'ContactRelation',
+	DATE(t1.encounter_datetime) AS 'LastVisit',
+    NULL AS 'MaritalStatus',
+    NULL AS 'EducationLevel',
     CASE
         WHEN
             DATE(t1.enrollment_date) = '1900-01-01'
@@ -250,12 +249,10 @@ CREATE temporary TABLE ndwr_all_patients_interim (
                 AND DATE(birthdate) <= DATE(t1.enrollment_date)
         THEN
             t1.enrollment_date
-    END AS DateConfirmedHIVPositive,
-    NULL AS PreviousARTExposure,
-    NULL AS PreviousARTStartDate,
-    'AMRS' AS Emr,
-    'Ampath Plus' AS Project,
-    mfl.mfl_code AS FacilityID,
+    END AS 'DateConfirmedHIVPositive',
+    NULL AS 'PreviousARTExposure',
+    NULL AS 'PreviousARTStartDate',
+   
     case
 		when date_format(@endDate, "%Y-%m-01") > t1.death_date then @status := "dead"
 		when date_format(@endDate, "%Y-%m-01") > date_format(transfer_out_date, "%Y-%m-01") then @status := "transfer_out"
@@ -263,42 +260,30 @@ CREATE temporary TABLE ndwr_all_patients_interim (
 		when timestampdiff(day,if(rtc_date,rtc_date,date_add(encounter_datetime, interval 28 day)),@endDate) between 29 and 90 then @status := "defaulter"
 		when timestampdiff(day,if(rtc_date,rtc_date,date_add(encounter_datetime, interval 28 day)),@endDate) > 90 then @status := "ltfu"
 		else @status := "unknown"
-	end as  StatusAtCCC,
-    NULL AS StatusAtPMTCT,
-    NULL AS StatusAtTBClinic,
-    NULL AS SatelliteName,
-    IF(t1.arv_first_regimen_start_date,
-        t1.arv_first_regimen_start_date,
-        t1.enrollment_date) AS arv_first_regimen_start_date,
-	t1.rtc_date as rtc_date,
-    IF(t1.arv_first_regimen,
-        etl.get_arv_names(t1.arv_first_regimen),
-        'unknown') AS arv_first_regimen,
-    IF(t1.arv_first_regimen_start_date,
-        t1.arv_first_regimen_start_date,
-        t1.enrollment_date) AS arv_start_date,
-    etl.get_arv_names(t1.cur_arv_meds) AS cur_arv_meds,
-    t1.cur_arv_line_strict,
-    NULL AS Inschool,
-    NULL AS KeyPopulationType,
-    NULL AS Orphan,
+	end as  'StatusAtCCC',
+    NULL AS 'StatusAtPMTCT',
+    NULL AS 'StatusAtTBClinic',
+    NULL AS 'Inschool',
+    NULL AS 'KeyPopulationType',
+    NULL AS 'Orphan',
     NULL AS PatientResidentCounty,
     NULL AS PatientResidentLocation,
     NULL AS PatientResidentSubCounty,
     NULL AS PatientResidentSubLocation,
     NULL AS PatientResidentVillage,
     NULL AS PatientResidentWard,
-    NULL AS PatientType,
-    'GeneralPopulation' AS PopulationType,
-    NULL AS TransferInDate,
-    NULL AS DateCreated
+    NULL AS 'PatientType',
+    'GeneralPopulation' AS 'PopulationType',
+    NULL AS 'TransferInDate',
+    NULL AS 'Occupation',
+    NULL AS 'DateCreated'
 FROM
     etl.flat_hiv_summary_v15b t1
     INNER JOIN
     ndwr_all_patients_build_queue__0 t3 ON (t3.person_id = t1.person_id)
         JOIN
     amrs.person p ON (p.person_id = t1.person_id)
-        LEFT JOIN
+        JOIN
     ndwr.mfl_codes mfl ON (mfl.location_id = t1.location_id)
         JOIN
     amrs.location l ON (l.location_id = t1.location_id)

@@ -80,8 +80,9 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
                             select 'SYNCING..........................................';
                             set @write_table = concat("ndwr_patient_labs_extract_temp_",queue_number);
                             set @queue_table = "ndwr_patient_labs_extract_sync_queue";
-                            CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract_sync_queue (
-                                person_id INT PRIMARY KEY
+                            CREATE TABLE IF NOT EXISTS ndwr.ndwr_patient_labs_extract_sync_queue (
+                                person_id INT(6) UNSIGNED,
+                                INDEX labs_sync_person_id (person_id)
                             );                            
                             
                             set @last_update = null;
@@ -93,7 +94,25 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
                                 table_name = @table_version;
 
                             replace into ndwr_patient_labs_extract_sync_queue
-                             (select distinct person_id from etl.flat_lab_obs where date_created >= @last_update);
+                             (select distinct person_id from etl.flat_lab_obs 
+                             where 
+                             obs REGEXP '!!5497=[0-9]'
+                             AND DATE(max_date_created) >= @last_update)
+                             ;
+
+                             replace into ndwr_patient_labs_extract_sync_queue
+                             (select distinct person_id from etl.flat_lab_obs 
+                             where 
+                             obs REGEXP '!!730=[0-9]'
+                             and DATE(max_date_created) >= @last_update)
+                             ;
+
+                             replace into ndwr_patient_labs_extract_sync_queue
+                             (select distinct person_id from etl.flat_lab_obs 
+                             where 
+                             obs REGEXP '!!856=[0-9]'
+                             and DATE(max_date_created) >= @last_update)
+                             ;
 
                  end if;
 

@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
   `LastRegimen` VARCHAR(100) NULL,
   `LastRegimenLine` VARCHAR(200) NULL,
   `Duration` INT NULL,
-  `ExpectedReturn` INT NULL,
+  `ExpectedReturn` DATETIME NULL,
   `Provider` VARCHAR(50) NULL,
   `LastVisit` DATETIME NULL,
   `ExitReason` VARCHAR(100) NULL,

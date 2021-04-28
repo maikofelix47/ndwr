@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
   `TestName` VARCHAR(200) NULL,
   `EnrollmentTest` VARCHAR(50) NULL,
   `TestResult` INT NOT NULL,
-  `Reason` VARCHAR(200) NULL,
+  `LabReason` VARCHAR(200) NULL,
+  `DateSampleTaken` DATETIME NOT NULL,
+  `SampleType` VARCHAR(200) NULL,
   `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
    PRIMARY KEY VisitID (VisitID),
    INDEX patient_order_date (PatientID , OrderedbyDate),
@@ -156,7 +158,9 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
                        t.TestName,
 					   null AS EnrollmentTest,
 					   t.TestResult,
-                       t.TestName as Reason
+                       t.TestName as LabReason,
+                       null as DateSampleTaken,
+                       null as SampleType
                       
                            
                    FROM
@@ -258,7 +262,9 @@ SELECT @total_rows_written;
                            i.TestName,
 					       i.EnrollmentTest,
 					       i.TestResult,
-                           i.Reason,
+                           i.LabReason,
+                           i.DateSampleTaken,
+                           i.SampleType,
                            null as DateCreated
                           
                           from ndwr_patient_labs_extract_interim i

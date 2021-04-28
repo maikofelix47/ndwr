@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_status_extract` (
     `ExitDescription` VARCHAR(50) NULL,
     `ExitDate` DATETIME NULL,
     `ExitReason` VARCHAR(200) NULL,
+    `TOVerified` TINYINT NULL,
+    `TOVerifiedDate` DATETIME NULL,
     `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
      INDEX status_patient_id (PatientID),
      INDEX status_patient_pk (PatientPK),
@@ -117,10 +119,12 @@ SELECT CONCAT('Creating and populating interim status table ..');
 				   t1.Emr,
                    t1.Project,
                    t1.FacilityName,
-				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitDescription,
-				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null) as ExitDate,
-                   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitReason,
-                   null as DateCreated
+				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as 'ExitDescription',
+				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null) as 'ExitDate',
+                   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as 'ExitReason',
+                   null as 'TOVerified',
+                   null as 'TOVerifiedDate'
+                   null as 'DateCreated'
                  
                     from ndwr.ndwr_all_patients_extract t1
                     inner join ndwr.ndwr_all_patient_status_extract_build_queue__0 t2 on (t1.PatientID = t2.person_id)

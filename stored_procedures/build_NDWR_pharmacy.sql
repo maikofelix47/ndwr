@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
   `RegimenLine` VARCHAR(200) NULL,
   `PeriodTaken` VARCHAR(100) NULL,
   `ProphylaxisType` VARCHAR(100) NULL,
+  `RegimenChangedSwitched` VARCHAR(20) NULL,
+  `RegimenChangeSwitchReason` VARCHAR(200) NULL,
+  `StopRegimenReason` VARCHAR(200) NULL,
+  `StopRegimenDate` DATETIME NULL,
   `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
    PRIMARY KEY VisitID (VisitID),
    INDEX patient_date (PatientID , DispenseDate),
@@ -129,7 +133,10 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
                                null AS RegimenLine,
 							   null as PeriodTaken,
                                null as ProphylaxisType,
-                               null
+                               null as RegimenChangedSwitched,
+                               null as RegimenChangeSwitchReason,
+                               null as StopRegimenReason,
+                               null as StopRegimenDate
                                 FROM
                                   etl.flat_hiv_summary_v15b t1
                                 left join ndwr.mfl_codes mfl on (mfl.location_id = t1.location_id)

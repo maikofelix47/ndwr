@@ -39,3 +39,9 @@ replace into ndwr.ndwr_patient_baselines_extract_build_queue (
    select distinct s.person_id from etl.flat_hiv_summary_v15b s where	(s.arv_first_regimen_start_date <> ''	or s.enrollment_date<>'') and encounter_datetime >= '2021-03-01 00:00:00'
 );
 CALL `ndwr`.`build_ndwr_patient_baselines_extract`("build",1,1,true);
+##############################################
+replace into ndwr.ndwr_patient_depression_screening_build_queue(
+select distinct o.person_id from etl.flat_obs o where
+o.encounter_type IN (105,106,129,110,129,140,163,191)
+AND o.obs regexp '!!7806=' and obs.encounter_datetime >= '2021-01-01 00:00:00');
+CALL `ndwr`.`build_ndwr_patient_depression_screening`("build",1,10,1,"true");

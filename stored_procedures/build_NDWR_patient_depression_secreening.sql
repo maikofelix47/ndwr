@@ -1,3 +1,4 @@
+use ndwr;
 DELIMITER $$
 CREATE  PROCEDURE `build_ndwr_patient_depression_screening`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
@@ -10,31 +11,33 @@ BEGIN
           
           
 CREATE TABLE IF NOT EXISTS ndwr_patient_depression_screening (
-  `PatientPK` INT NOT NULL,
-  `SiteCode` INT NOT NULL,
-  `PatientID` INT NOT NULL,
-  `FacilityID` INT NOT NULL,
-  `Emr` VARCHAR(50) NULL,
-  `Project` VARCHAR(50) NULL,
-  `VisitID` INT NULL,
-  `VisitDate` DATETIME NULL,
-  `PHQ9_1` VARCHAR(50) NULL,
-  `PHQ9_2`  VARCHAR(50) NULL,
-  `PHQ9_3` VARCHAR(50) NULL,
-  `PHQ9_4` VARCHAR(50) NULL,
-  `PHQ9_5`  VARCHAR(50) NULL,
-  `PHQ9_6`  VARCHAR(50) NULL,
-  `PHQ9_7`  VARCHAR(50) NULL,
-  `PHQ9_8`  VARCHAR(50) NULL,
-  `PHQ9_9`  VARCHAR(50) NULL,
-  `PHQ9Score`  INT NULL,
-  `PHQ9Rating`  VARCHAR(50) NULL,
-  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-   PRIMARY KEY VisitID (VisitID),
-   INDEX patient_date (PatientID , VisitDate),
-   INDEX patient_id (PatientID),
-   INDEX patient_pk (PatientPK),
-   INDEX date_created (DateCreated)
+    `PatientPK` INT NOT NULL,
+    `SiteCode` INT NOT NULL,
+    `PatientID` INT NOT NULL,
+    `FacilityID` INT NOT NULL,
+    `Emr` VARCHAR(50) NULL,
+    `Project` VARCHAR(50) NULL,
+    `VisitID` INT NULL,
+    `VisitDate` DATETIME NULL,
+    `PHQ9_1` TINYINT NULL,
+    `PHQ9_2` TINYINT NULL,
+    `PHQ9_3` TINYINT NULL,
+    `PHQ9_4` TINYINT NULL,
+    `PHQ9_5` TINYINT NULL,
+    `PHQ9_6` TINYINT NULL,
+    `PHQ9_7` TINYINT NULL,
+    `PHQ9_8` TINYINT NULL,
+    `PHQ9_9` TINYINT NULL,
+    `PHQ9Score` TINYINT NULL,
+    `PHQ9Rating` TINYINT NULL,
+    `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY VisitID (VisitID),
+    INDEX patient_ds_date (PatientID , VisitDate),
+    INDEX patient_ds_id (PatientID),
+    INDEX patient_ds_pk (PatientPK),
+    INDEX patient_ds_site (SiteCode),
+    INDEX patient_ds_site_visit_id (VisitID),
+    INDEX ds_date_created (DateCreated)
 );
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_patient_depression_screening);
 
@@ -66,10 +69,12 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_depression_screening (
                             EXECUTE s1; 
                             DEALLOCATE PREPARE s1;
 
-                            SELECT @person_ids_count AS 'num patients to build';
+SELECT @person_ids_count AS 'num patients to build';
                    
-                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
-				                    SELECT CONCAT('Deleting patient records in interim ', @primary_table);
+                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);');
+				SELECT 
+    CONCAT('Deleting patient records in interim ',
+            @primary_table);
 				                    PREPARE s1 from @dyn_sql; 
 				                    EXECUTE s1; 
 				                    DEALLOCATE PREPARE s1;  
@@ -79,17 +84,17 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_depression_screening (
                             select 'SYNCING..........................................';
                             set @write_table = concat("ndwr_patient_depression_screening_temp_",queue_number);
                             set @queue_table = "ndwr_patient_depression_screening_sync_queue";
-                            CREATE TABLE IF NOT EXISTS ndwr_patient_depression_screening_sync_queue (
-                                person_id INT PRIMARY KEY
-                            );                            
+CREATE TABLE IF NOT EXISTS ndwr_patient_depression_screening_sync_queue (
+    person_id INT PRIMARY KEY
+);                            
                             
                             set @last_update = null;
-                            SELECT 
-                                MAX(date_updated)
-                            INTO @last_update FROM
-                                ndwr.flat_log
-                            WHERE
-                                table_name = @table_version;
+SELECT 
+    MAX(date_updated)
+INTO @last_update FROM
+    ndwr.flat_log
+WHERE
+    table_name = @table_version;
 
                             replace into ndwr_patient_depression_screening_sync_queue
                              (select distinct person_id from etl.flat_hiv_summary_v15b where date_created >= @last_update);
@@ -112,15 +117,70 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_depression_screening (
 						  
                           drop temporary table if exists ndwr_patient_depression_screening_interim;
                           
+SELECT CONCAT('Creating ndwr_patient_depression_screening_interim table...');
                          
-                          SET @dyn_sql=CONCAT('create temporary table ndwr_patient_depression_screening_interim (SELECT  distinct	
-                              );');
-                          
-						 SELECT CONCAT('Creating interim table');
-
-                          PREPARE s1 from @dyn_sql; 
-                          EXECUTE s1; 
-                          DEALLOCATE PREPARE s1;
+                          create temporary table ndwr_patient_depression_screening_interim (SELECT
+                                    o.person_id AS 'PatientPK',
+                                    mfl.mfl_code AS 'SiteCode',
+                                    o.person_id AS 'PatientID',
+                                    mfl.mfl_code AS 'FacilityID',
+                                    'AMRS' AS 'Emr',
+                                    'AMPATH' AS 'Project',
+                                    o.encounter_id as 'VisitID',
+                                    o.encounter_datetime as 'VisitDate',
+                                        CASE
+                                        WHEN o.obs REGEXP '!!7806=' THEN etl.GetValues(o.obs,7806)
+                                        ELSE NULL
+                                    END AS 'PHQ9_1',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!7807=' THEN etl.GetValues(o.obs,7807)
+                                        ELSE NULL
+                                    END AS 'PHQ9_2',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!7808=' THEN etl.GetValues(o.obs,7808)
+                                        ELSE NULL
+                                    END AS 'PHQ9_3',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!7809=' THEN etl.GetValues(o.obs,7809)
+                                        ELSE NULL
+                                    END AS 'PHQ9_4',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!7810=' THEN etl.GetValues(o.obs,7810)
+                                        ELSE NULL
+                                    END AS 'PHQ9_5',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!7811=' THEN etl.GetValues(o.obs,7811)
+                                        ELSE NULL
+                                    END AS 'PHQ9_6',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!7812=' THEN etl.GetValues(o.obs,7812)
+                                        ELSE NULL
+                                    END AS 'PHQ9_7',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!7813=' THEN etl.GetValues(o.obs,7813)
+                                        ELSE NULL
+                                    END AS 'PHQ9_8',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!7814=' THEN etl.GetValues(o.obs,7814)
+                                        ELSE NULL
+                                    END AS 'PHQ9_9',
+                                    etl.GetValues(o.obs,7815) as 'PHQ9Score',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!7815=' THEN etl.GetValues(o.obs,7815)
+                                        ELSE NULL
+                                    END AS 'PHQ9Rating',
+                                NULL AS 'DateCreated'
+                                FROM
+                                    ndwr.ndwr_patient_depression_screening_build_queue__0 q
+                                        JOIN
+                                    etl.flat_obs o ON (q.person_id = o.person_id)
+                                        JOIN
+                                    ndwr.mfl_codes mfl ON (mfl.location_id = o.location_id)
+                                WHERE
+                                    o.encounter_type IN (105,106,129,110,129,140,163,191)
+                                        AND o.obs REGEXP '!!7806='
+                                ORDER BY o.person_id,o.encounter_datetime ASC
+                          );
 
 SELECT 
     COUNT(*)

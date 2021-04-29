@@ -1,5 +1,5 @@
 DELIMITER $$
-CREATE  PROCEDURE `build_NDWR_all_patients_extract`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN end_date varchar(50) ,IN log BOOLEAN)
+CREATE  PROCEDURE `build_NDWR_all_patients_extract`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_all_patients_extract";
@@ -7,12 +7,12 @@ BEGIN
 					set @start = now();
 					set @table_version = "ndwr_all_patients_v1.1";
                     set @query_type=query_type;
-                    set @end_date = end_date;
+                    -- set @last_date_created := null;
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_all_patients_extract);
                     set @endDate := LAST_DAY(CURDATE());
 
 CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
-    `PKV` INT NULL,
+    `PKV` VARCHAR(20) NULL,
     `PatientPK` INT NOT NULL,
     `SiteCode` INT NOT NULL,
     `PatientID` INT NOT NULL,
@@ -40,7 +40,13 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
     `StatusAtCCC` VARCHAR(100) NULL,
     `StatusAtPMTCT` VARCHAR(100) NULL,
     `StatusAtTBClinic` VARCHAR(100) NULL,
-    'Inschool' VARCHAR(10) NULL,
+    `Inschool` VARCHAR(10) NULL,
+    `arv_first_regimen_start_date` DATE NULL,
+    `rtc_date` DATE NULL,
+    `arv_first_regimen` VARCHAR(200) NULL,
+    `arv_start_date` DATE NULL,
+    `cur_arv_meds` VARCHAR(200) NULL,
+    `cur_arv_line_strict` VARCHAR(250) NULL,
     `KeyPopulationType` VARCHAR(100) NULL,
     `Orphan` VARCHAR(100) NULL,
     `PatientResidentCounty` VARCHAR(100) NULL,
@@ -59,11 +65,7 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
      INDEX patient_facility_id (FacilityID),
      INDEX patient_site_code (SiteCode),
      INDEX patient_date_created (DateCreated),
-     INDEX patient_patient_facility (PatientID,FacilityID),
-     INDEX patient_rtc (PatientID,rtc_date),
-     INDEX patient_reg_start (PatientID,arv_first_regimen_start_date),
-     INDEX patient_arv_start (PatientID,arv_first_regimen_start_date),
-     INDEX patient_transfer_in (PatientID,arv_start_date)
+     INDEX patient_patient_facility (PatientID,FacilityID)
 );
 
                     if(@query_type="build") then
@@ -86,7 +88,11 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
 							              SET @dyn_sql=CONCAT('delete t1 from ndwr_all_patients_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
                                           PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
-							              DEALLOCATE PREPARE s1;  
+							              DEALLOCATE PREPARE s1; 
+                                          
+										 
+                                          
+                                         
                                           
 				  end if;
 
@@ -137,7 +143,7 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
                   
                    SELECT CONCAT('Deleting data from ', @primary_table);
                     
-					SET @dyn_sql=CONCAT('delete t1 from ',@primary_table, ' t1 join ',@queue_table,' t2 on (t1.patientid = t2.person_id);'); 
+					SET @dyn_sql=CONCAT('delete t1 from ',@primary_table, ' t1 join ',@queue_table,' t2 on (t1.PatientPK = t2.person_id);'); 
                     PREPARE s1 from @dyn_sql; 
                     EXECUTE s1; 
                     DEALLOCATE PREPARE s1;
@@ -158,13 +164,34 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
 						              PREPARE s1 from @dyn_sql; 
 						              EXECUTE s1; 
 						              DEALLOCATE PREPARE s1;
+
+                         select CONCAT('Creating soundex mapping ...');
+
+                          drop temporary table if exists ndwr_patient_pkv_mapping;
+
+
+                          create temporary TABLE  ndwr_patient_pkv_mapping(
+                              SELECT 
+                                    q.person_id,
+                                    p.gender,
+                                    p.birthdate,
+                                    CONCAT(p.gender,SOUNDEX(n.given_name),SOUNDEX(n.family_name),DATE_FORMAT(p.birthdate,'%Y')) as 'PKV'
+                                FROM
+                                    ndwr.ndwr_all_patients_build_queue__0 q
+                                    left join amrs.person p on (p.person_id = q.person_id AND p.voided = 0)
+                                    left join amrs.person_name n on (n.person_id = q.person_id AND n.voided = 0)
+                                    group by q.person_id
+
+                          );
+
+                           select CONCAT('Creating ndwr_all_patients_interim table ...');
                                       
 						  
                           drop temporary table if exists ndwr_all_patients_interim;
                           
 CREATE temporary TABLE ndwr_all_patients_interim (
     SELECT
-    null as 'PKV',
+    pm.PKV as 'PKV',
     t1.person_id AS 'PatientPK',
     mfl.mfl_code AS 'SiteCode',
     t1.person_id AS 'PatientID',
@@ -172,8 +199,8 @@ CREATE temporary TABLE ndwr_all_patients_interim (
     'AMRS' AS Emr,
     'Ampath Plus' AS 'Project',
     mfl.Facility AS FacilityName,
-    p.gender AS Gender,
-    p.birthdate AS DOB,
+    pm.gender AS Gender,
+    pm.birthdate AS DOB,
     CASE
         WHEN
             DATE(t1.enrollment_date) = '1900-01-01'
@@ -264,6 +291,18 @@ CREATE temporary TABLE ndwr_all_patients_interim (
     NULL AS 'StatusAtPMTCT',
     NULL AS 'StatusAtTBClinic',
     NULL AS 'Inschool',
+    IF(t1.arv_first_regimen_start_date,
+        t1.arv_first_regimen_start_date,
+        t1.enrollment_date) AS 'arv_first_regimen_start_date',
+	t1.rtc_date as 'rtc_date',
+    IF(t1.arv_first_regimen,
+        etl.get_arv_names(t1.arv_first_regimen),
+        'unknown') AS 'arv_first_regimen',
+    IF(t1.arv_first_regimen_start_date,
+        t1.arv_first_regimen_start_date,
+        t1.enrollment_date) AS arv_start_date,
+    etl.get_arv_names(t1.cur_arv_meds) AS 'cur_arv_meds',
+    t1.cur_arv_line_strict as 'cur_arv_line_strict',
     NULL AS 'KeyPopulationType',
     NULL AS 'Orphan',
     NULL AS PatientResidentCounty,
@@ -281,8 +320,8 @@ FROM
     etl.flat_hiv_summary_v15b t1
     INNER JOIN
     ndwr_all_patients_build_queue__0 t3 ON (t3.person_id = t1.person_id)
-        JOIN
-    amrs.person p ON (p.person_id = t1.person_id)
+    left join 
+      ndwr_patient_pkv_mapping pm on (t1.person_id = pm.person_id)
         JOIN
     ndwr.mfl_codes mfl ON (mfl.location_id = t1.location_id)
         JOIN

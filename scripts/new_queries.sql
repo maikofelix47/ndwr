@@ -52,3 +52,9 @@ replace into ndwr.ndwr_patient_contact_listing_build_queue(
 );
 CALL `ndwr`.`build_ndwr_patient_contact_listing`("build",1,1,1,"true");
 ####################################################################
+replace into ndwr.ndwr_patient_eac_build_queue(
+        select distinct person_id from etl.flat_obs where encounter_type in (2,106,129,110)
+        and encounter_datetime >= '2021-04-01'
+);
+CALL `ndwr`.`build_ndwr_patient_eac`("build",1,1,1,"true");
+####################################################################

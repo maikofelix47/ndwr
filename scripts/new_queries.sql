@@ -45,3 +45,10 @@ select distinct o.person_id from etl.flat_obs o where
 o.encounter_type IN (105,106,129,110,129,140,163,191)
 AND o.obs regexp '!!7806=' and obs.encounter_datetime >= '2021-01-01 00:00:00');
 CALL `ndwr`.`build_ndwr_patient_depression_screening`("build",1,10,1,"true");
+#############################################################
+replace into ndwr.ndwr_patient_contact_listing_build_queue(
+        select distinct person_id from etl.flat_obs where encounter_type in (243)
+        and encounter_datetime >= '2021-04-01'
+);
+CALL `ndwr`.`build_ndwr_patient_contact_listing`("build",1,1,1,"true");
+####################################################################

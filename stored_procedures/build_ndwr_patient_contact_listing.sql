@@ -12,7 +12,7 @@ BEGIN
 CREATE TABLE IF NOT EXISTS ndwr_patient_contact_listing (
     `PatientPK` INT NOT NULL,
     `SiteCode` INT NOT NULL,
-    `PatientID` INT NOT NULL,
+    `PatientID` VARCHAR(30) NULL,
     `Emr` VARCHAR(50) NULL,
     `Project` VARCHAR(50) NULL,
     `FacilityName` VARCHAR(100) NULL,

@@ -12,14 +12,14 @@ BEGIN
 CREATE TABLE IF NOT EXISTS ndwr_gbv_screening (
   `PatientPK` INT NOT NULL,
   `SiteCode` INT NOT NULL,
-  `PatientID` INT NOT NULL,
+  `PatientID` VARCHAR(30) NULL,
   `Emr` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
   `FacilityName` VARCHAR(100) NULL,
   `PartnerPersonID`  INT NULL,
   `VisitID` INT NULL,
   `VisitDate` DATETIME NOT NULL,
-  `IPV` VARCHAR(10) NULL,
+  `IPV` BOOLEAN NULL,
   `PhysicalIPV` VARCHAR(10) NULL,
   `EmotionalIPV` VARCHAR(10) NULL,
   `SexualIPV` VARCHAR(10) NULL,
@@ -106,16 +106,55 @@ CREATE TABLE IF NOT EXISTS ndwr_gbv_screening (
                                       
 						  
                           drop temporary table if exists ndwr_gbv_screening_interim;
+                          create temporary table ndwr_gbv_screening_interim(
+                              SELECT
+                              c.PatientPK,
+                              c.SiteCode,
+                              c.PatientID,
+                              c.Emr,
+                              c.Project,
+                              c.FacilityName,
+                              c.PartnerPersonID,
+                              c.VisitID,
+                              c.VisitDate,
+                              CASE
+                                WHEN c.IpvScreeningOutcome IN (9303,1789) THEN 1
+                                WHEN c.IpvScreeningOutcome IN (1107) then 0
+                                ELSE NULL
+                              END AS 'IPV',
+                              CASE
+                                WHEN c.IpvScreeningOutcome IN (1789) AND c.RelationshipWithPatient in (1670,1669,5716,10479) THEN 1
+                                WHEN c.IpvScreeningOutcome IN (1107) THEN 0
+                                ELSE NULL
+                              END AS 'PhysicalIPV',
+                              CASE
+                                WHEN c.IpvScreeningOutcome IN (7020) AND c.RelationshipWithPatient in (1670,1669,5716,10479) THEN 1
+                                WHEN c.IpvScreeningOutcome IN (1107) THEN 0
+                                ELSE NULL
+                              END AS 'EmotionalIPV',
+                              CASE
+                                WHEN c.IpvScreeningOutcome IN (9303) AND c.RelationshipWithPatient in (1670,1669,5716,10479) THEN 1
+                                WHEN c.IpvScreeningOutcome IN (1107) THEN 0
+                                ELSE NULL
+                              END AS 'SexualIPV',
+                              CASE
+                                 WHEN c.IpvScreeningOutcome IN (1789,7020,9303) AND c.RelationshipWithPatient NOT IN (1670,1669,5716,10479) THEN 1
+                                 WHEN c.IpvScreeningOutcome IN (1107) THEN 0
+                                 ELSE NULL
+                              END AS 'IPVRelationship',
+                              NULL AS 'DateCreated'
+                              FROM
+                              ndwr.ndwr_patient_contact_listing c
+
+
+                          );
                           
                          
-                          SET @dyn_sql=CONCAT('create temporary table ndwr_gbv_screening_interim (SELECT  distinct	
-                              );');
+                          
                           
 						 SELECT CONCAT('Creating interim table');
 
-                          PREPARE s1 from @dyn_sql; 
-                          EXECUTE s1; 
-                          DEALLOCATE PREPARE s1;
+                         
 
 SELECT 
     COUNT(*)

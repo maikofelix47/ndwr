@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
     `PKV` VARCHAR(20) NULL,
     `PatientPK` INT NOT NULL,
     `SiteCode` INT NOT NULL,
-    `PatientID` INT NOT NULL,
+    `PatientID` VARCHAR(50) NULL,
     `FacilityID` INT NULL,
     `Emr` VARCHAR(50) NULL,
     `Project` VARCHAR(50) NULL,
@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
     `arv_first_regimen` VARCHAR(200) NULL,
     `arv_start_date` DATE NULL,
     `cur_arv_meds` VARCHAR(200) NULL,
-    `cur_arv_line_strict` VARCHAR(250) NULL,
+    `cur_arv_line_strict` INT NULL,
+    `cur_arv_line` INT NULL,
     `KeyPopulationType` VARCHAR(100) NULL,
     `Orphan` VARCHAR(100) NULL,
     `PatientResidentCounty` VARCHAR(100) NULL,
@@ -194,7 +195,7 @@ CREATE temporary TABLE ndwr_all_patients_interim (
     pm.PKV as 'PKV',
     t1.person_id AS 'PatientPK',
     mfl.mfl_code AS 'SiteCode',
-    t1.person_id AS 'PatientID',
+    i.identifier AS 'PatientID',
     mfl.mfl_code AS 'FacilityID',
     'AMRS' AS Emr,
     'Ampath Plus' AS 'Project',
@@ -303,6 +304,7 @@ CREATE temporary TABLE ndwr_all_patients_interim (
         t1.enrollment_date) AS arv_start_date,
     etl.get_arv_names(t1.cur_arv_meds) AS 'cur_arv_meds',
     t1.cur_arv_line_strict as 'cur_arv_line_strict',
+    t1.cur_arv_line as 'cur_arv_line',
     NULL AS 'KeyPopulationType',
     NULL AS 'Orphan',
     NULL AS PatientResidentCounty,
@@ -326,6 +328,7 @@ FROM
     ndwr.mfl_codes mfl ON (mfl.location_id = t1.location_id)
         JOIN
     amrs.location l ON (l.location_id = t1.location_id)
+    left join amrs.patient_identifier i on (i.patient_id = t1.person_id AND i.identifier_type = 28 AND i.voided = 0)
 WHERE
     t1.is_clinical_encounter = 1
         AND t1.next_clinical_datetime_hiv IS NULL

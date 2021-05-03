@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
   `StartARTAtThisFacility` VARCHAR(50) NULL,
   `StartRegimen` VARCHAR(50) NULL,
   `StartRegimenLine` VARCHAR(100) NULL,
+  `StartRegimenLineCategory` VARCHAR(100) NULL,
   `LastARTDate` DATETIME NULL,
   `LastRegimen` VARCHAR(100) NULL,
   `LastRegimenLine` VARCHAR(200) NULL,
@@ -81,7 +82,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
 
                                   SELECT @person_ids_count AS 'num patients to build';
                    
-                                  SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
+                                  SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientPK);'); 
 				                          SELECT CONCAT('Deleting patient records in interim ', @primary_table);
 				                          PREPARE s1 from @dyn_sql; 
 				                          EXECUTE s1; 
@@ -153,8 +154,17 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
                               end as PreviousARTStartDate,
                               etl.get_arv_names(t1.arv_first_regimen) as PreviousARTRegimen,
                               t1.arv_start_date as StartARTAtThisFacility,
-			                        t1.arv_first_regimen as StartRegimen,
-							 t1.cur_arv_line_strict as StartRegimenLine,
+			                  t1.arv_first_regimen as StartRegimen,
+							  t1.cur_arv_line AS StartRegimenLine,
+                              CASE
+                                WHEN t1.cur_arv_line = 1 AND  (DATEDIFF(t1.lastVisit, t1.DOB) / 365.25) >= 25 THEN "Adult FirstLine"
+                                WHEN t1.cur_arv_line = 1 AND  (DATEDIFF(t1.lastVisit, t1.DOB) / 365.25) < 25 THEN "Child FirstLine"
+                                WHEN t1.cur_arv_line = 2 AND  (DATEDIFF(t1.lastVisit, t1.DOB) / 365.25) >= 25 THEN "Adult SecondLine"
+                                WHEN t1.cur_arv_line = 2 AND  (DATEDIFF(t1.lastVisit, t1.DOB) / 365.25) < 25 THEN "Child SecondLine"
+                                WHEN t1.cur_arv_line = 3 AND  (DATEDIFF(t1.lastVisit, t1.DOB) / 365.25) >= 25 THEN "Adult ThirdLine"
+                                WHEN t1.cur_arv_line = 3 AND  (DATEDIFF(t1.lastVisit, t1.DOB) / 365.25) < 25 THEN "Child ThirdLine"
+                                ELSE NULL
+                              END AS StartRegimenLineCategory,
                               t1.lastVisit as LastARTDate,
 							  t1.cur_arv_meds as LastRegimen,
 							  etl.get_arv_names(t1.cur_arv_line_strict) as LastRegimenLine,
@@ -166,7 +176,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
 			                        if(t1.StatusAtCCC in("dead","ltfu","transfer_out"),t1.lastVisit,null) as ExitDate,
 							  null as DateCreated
                               FROM ndwr.ndwr_all_patients_extract t1
-                              join ndwr_patient_art_extract_build_queue__0 b on (b.person_id = t1.PatientID)
+                              join ndwr_patient_art_extract_build_queue__0 b on (b.person_id = t1.PatientPK)
                               
                               );');
                           

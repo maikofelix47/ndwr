@@ -123,22 +123,22 @@ CREATE TABLE IF NOT EXISTS ndwr_gbv_screening (
                                 ELSE NULL
                               END AS 'IPV',
                               CASE
-                                WHEN c.IpvScreeningOutcome IN (1789) AND c.RelationshipWithPatient in (1670,1669,5716,10479) THEN 1
+                                WHEN c.IpvScreeningOutcome IN (1789) AND c.RelationshipWithPatient in (970,971,972,1565,1669,1670,7246,105) THEN 1
                                 WHEN c.IpvScreeningOutcome IN (1107) THEN 0
                                 ELSE NULL
                               END AS 'PhysicalIPV',
                               CASE
-                                WHEN c.IpvScreeningOutcome IN (7020) AND c.RelationshipWithPatient in (1670,1669,5716,10479) THEN 1
+                                WHEN c.IpvScreeningOutcome IN (7020) AND c.RelationshipWithPatient in (970,971,972,1565,1669,1670,7246,105) THEN 1
                                 WHEN c.IpvScreeningOutcome IN (1107) THEN 0
                                 ELSE NULL
                               END AS 'EmotionalIPV',
                               CASE
-                                WHEN c.IpvScreeningOutcome IN (9303) AND c.RelationshipWithPatient in (1670,1669,5716,10479) THEN 1
+                                WHEN c.IpvScreeningOutcome IN (9303) AND c.RelationshipWithPatient in (970,971,972,1565,1669,1670,7246,105) THEN 1
                                 WHEN c.IpvScreeningOutcome IN (1107) THEN 0
                                 ELSE NULL
                               END AS 'SexualIPV',
                               CASE
-                                 WHEN c.IpvScreeningOutcome IN (1789,7020,9303) AND c.RelationshipWithPatient NOT IN (1670,1669,5716,10479) THEN 1
+                                 WHEN c.IpvScreeningOutcome IN (1789,7020,9303) AND (c.RelationshipWithPatient IN (5622) || c.RelationshipWithPatient IS NULL) THEN 1
                                  WHEN c.IpvScreeningOutcome IN (1107) THEN 0
                                  ELSE NULL
                               END AS 'IPVRelationship',

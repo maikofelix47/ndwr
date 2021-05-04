@@ -58,3 +58,8 @@ replace into ndwr.ndwr_patient_eac_build_queue(
 );
 CALL `ndwr`.`build_ndwr_patient_eac`("build",1,1,1,"true");
 ####################################################################
+replace into ndwr.ndwr_gbv_screening_build_queue(
+        select distinct PatientPK from ndwr.ndwr_patient_contact_listing where DateCreated >= '2021-04-01'
+);
+CALL `ndwr`.`build_ndwr_gbv_screening`("build",1,1,1,"true");
+####################################################################

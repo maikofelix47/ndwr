@@ -144,7 +144,8 @@ CREATE TABLE IF NOT EXISTS ndwr_gbv_screening (
                               END AS 'IPVRelationship',
                               NULL AS 'DateCreated'
                               FROM
-                              ndwr.ndwr_patient_contact_listing c
+                              ndwr.ndwr_gbv_screening_build_queue__0 q
+                              join ndwr.ndwr_patient_contact_listing c on (c.person_id = q.person_id)
 
 
                           );

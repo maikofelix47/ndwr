@@ -12,15 +12,15 @@ BEGIN
 CREATE TABLE IF NOT EXISTS ndwr_drug_alcohol_screening (
   `PatientPK` INT NOT NULL,
   `SiteCode` INT NOT NULL,
-  `PatientID` INT NOT NULL,
+  `PatientID` VARCHAR(30) NULL,
   `Emr` VARCHAR(20) NULL,
   `Project` VARCHAR(20) NULL,
   `FacilityName` VARCHAR(100) NULL,
   `VisitID` INT NULL,
   `VisitDate` DATETIME NOT NULL,
-  `DrinkAlcohol` VARCHAR(50) NULL,
-  `Smoking` VARCHAR(50) NULL,
-  `DrugUse` VARCHAR(50) NULL,
+  `DrinkAlcohol` INT NULL,
+  `Smoking` INT NULL,
+  `DrugUse` INT NULL,
   `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
    INDEX drug_alcohol_screening_pk (PatientPK),
    INDEX drug_alcohol_screening_sc (SiteCode),
@@ -105,14 +105,32 @@ CREATE TABLE IF NOT EXISTS ndwr_drug_alcohol_screening (
                           drop temporary table if exists ndwr_drug_alcohol_screening_interim;
                           
                          
-                          SET @dyn_sql=CONCAT('create temporary table ndwr_drug_alcohol_screening_interim (SELECT  distinct	
-                              );');
-                          
-						 SELECT CONCAT('Creating interim table');
-
-                          PREPARE s1 from @dyn_sql; 
-                          EXECUTE s1; 
-                          DEALLOCATE PREPARE s1;
+                          create temporary table ndwr_drug_alcohol_screening_interim(
+                              select
+                                o.person_id AS 'PatientPK',
+                                mfl.mfl_code AS 'SiteCode',
+                                i.identifier AS 'PatientID',
+                                'AMRS' AS 'Emr',
+                                'AMPATH' AS 'Project',
+                                mfl.Facility AS 'FacilityName',
+                                o.encounter_id AS 'VisitID',
+                                o.encounter_datetime AS 'VisitDate',
+                                CASE
+                                    WHEN o.obs REGEXP '!!5319=' THEN etl.GetValues(o.obs, 5319)
+                                    ELSE NULL
+                                END AS 'DrinkAlcohol',
+                                NULL AS 'Smoking',
+                                NULL AS 'DrugUse',
+                                NULL AS 'DateCreated'
+                              from
+                              ndwr_drug_alcohol_screening_build_queue__0 q
+                              join 
+                              etl.flat_obs o on (o.person_id = q.person_id)
+                              JOIN
+                              ndwr.mfl_codes mfl ON (mfl.location_id = o.location_id)
+                              left join amrs.patient_identifier i on (i.patient_id = q.person_id AND i.identifier_type = 28 AND i.voided = 0)
+                              where o.encounter_type in (1)
+                          );
 
 SELECT 
     COUNT(*)

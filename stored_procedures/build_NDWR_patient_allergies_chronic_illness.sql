@@ -9,52 +9,53 @@ BEGIN
                     set @query_type= query_type;
           
           
-CREATE TABLE IF NOT EXISTS ndwr_patient_allergies_chronic_illness (
-  `PatientPK` INT NOT NULL,
-  `SiteCode` INT NOT NULL,
-  `PatientID` INT NOT NULL,
-  `FacilityID` INT NOT NULL,
-  `Emr` VARCHAR(50) NULL,
-  `Project` VARCHAR(50) NULL,
-  `FacilityName` VARCHAR(50) NULL,
-  `VisitID` INT NULL,
-  `VisitDate` DATETIME NULL,
-  `ChronicIllness` VARCHAR(50) NULL,
-  `ChronicOnsetDate`  DATETIME NULL,
-  `knownAllergies` VARCHAR(10) NULL,
-  `AllergyCausativeAgent` VARCHAR(200) NULL,
-  `AllergicReaction` VARCHAR(200) NULL,
-  `AllergySeverity` VARCHAR(200) NULL,
-  `AllergyOnsetDate`  DATETIME NULL,
-  `Skin` VARCHAR(200) NULL,
-  `Eyes` VARCHAR(200) NULL,
-  `ENT` VARCHAR(200) NULL,
-  `Chest` VARCHAR(200) NULL,
-  `CVS` VARCHAR(200) NULL,
-  `Abdomen` VARCHAR(200) NULL,
-  `CNS` VARCHAR(200) NULL,
-  `Genitourinary` VARCHAR(200) NULL,
-  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-   PRIMARY KEY VisitID (VisitID),
-   INDEX patient_date (PatientID , DispenseDate),
-   INDEX patient_id (PatientID),
-   INDEX patient_pk (PatientPK),
-   INDEX dispense_date (DispenseDate),
-   INDEX dispense_date_location (DispenseDate,FacilityID),
-   INDEX date_created (DateCreated)
+CREATE TABLE IF NOT EXISTS ndwr.ndwr_patient_allergies_chronic_illness (
+    `PatientPK` INT NOT NULL,
+    `SiteCode` INT NOT NULL,
+    `PatientID` VARCHAR(30) NULL,
+    `FacilityID` INT NOT NULL,
+    `Emr` VARCHAR(50) NULL,
+    `Project` VARCHAR(50) NULL,
+    `FacilityName` VARCHAR(50) NULL,
+    `VisitID` INT NULL,
+    `VisitDate` DATETIME NULL,
+    `ChronicIllness` VARCHAR(200) NULL,
+    `ChronicOnsetDate` DATETIME NULL,
+    `knownAllergies` BOOLEAN NULL,
+    `AllergyCausativeAgent` VARCHAR(30) NULL,
+    `AllergicReaction` VARCHAR(200) NULL,
+    `AllergySeverity` VARCHAR(200) NULL,
+    `AllergyOnsetDate` DATETIME NULL,
+    `Skin` VARCHAR(200) NULL,
+    `Eyes` VARCHAR(200) NULL,
+    `ENT` VARCHAR(200) NULL,
+    `Chest` INT NULL,
+    `CVS` VARCHAR(200) NULL,
+    `Abdomen` VARCHAR(200) NULL,
+    `CNS` VARCHAR(200) NULL,
+    `Genitourinary` INT NULL,
+    `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY VisitID (VisitID),
+    INDEX patient_id (PatientID),
+    INDEX patient_pk (PatientPK),
+    INDEX aci_site_code (SiteCode),
+    INDEX date_created (DateCreated)
 );
-                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_patient_allergies_chronic_illness);
+                    set @last_date_created := null;
 
                     if(@query_type="build") then
 
 							              select 'BUILDING..........................................';
                             set @write_table = concat("ndwr_patient_allergies_chronic_illness_temp_",queue_number);
-                            set @queue_table = concat("ndwr_patient_allergies_chronic_illness_build_queue_",queue_number);                    												
+                            set @queue_table = concat("ndwr_patient_allergies_chronic_illness_build_queue_",queue_number); 
+                            
+                                          
+                               
 
-										        SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
-							              PREPARE s1 from @dyn_sql; 
-							              EXECUTE s1; 
-							              DEALLOCATE PREPARE s1;  
+										   SET @dyn_sql=CONCAT('create table if not exists ndwr.',@write_table,' like ndwr.',@primary_table);
+                                           PREPARE s1 from @dyn_sql; 
+                                           EXECUTE s1; 
+                                           DEALLOCATE PREPARE s1;  
 
 
 							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_patient_allergies_chronic_illness_build_queue limit ', queue_size, ');'); 
@@ -73,35 +74,17 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_allergies_chronic_illness (
                             EXECUTE s1; 
                             DEALLOCATE PREPARE s1;
 
-                            SELECT @person_ids_count AS 'num patients to build';
-                   
-                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
-				                    SELECT CONCAT('Deleting patient records in interim ', @primary_table);
-				                    PREPARE s1 from @dyn_sql; 
-				                    EXECUTE s1; 
-				                    DEALLOCATE PREPARE s1;  
+SELECT @person_ids_count AS 'num patients to build';
+                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientPK);');
+				SELECT 
+    CONCAT('Deleting patient records in interim ',
+            @primary_table);
+				                          PREPARE s1 from @dyn_sql; 
+				                          EXECUTE s1; 
+				                          DEALLOCATE PREPARE s1;  
+                                   
 
 				              end if;
-                      if (@query_type="sync") then
-                            select 'SYNCING..........................................';
-                            set @write_table = concat("ndwr_patient_allergies_chronic_illness_temp_",queue_number);
-                            set @queue_table = "ndwr_patient_allergies_chronic_illness_sync_queue";
-                            CREATE TABLE IF NOT EXISTS ndwr_patient_allergies_chronic_illness_sync_queue (
-                                person_id INT PRIMARY KEY
-                            );                            
-                            
-                            set @last_update = null;
-                            SELECT 
-                                MAX(date_updated)
-                            INTO @last_update FROM
-                                ndwr.flat_log
-                            WHERE
-                                table_name = @table_version;
-
-                            replace into ndwr_patient_allergies_chronic_illness_sync_queue
-                             (select distinct person_id from etl.flat_hiv_summary_v15b where date_created >= @last_update);
-
-                      end if;
 
                     set @total_time=0;
                     set @cycle_number = 0;
@@ -116,18 +99,185 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_allergies_chronic_illness (
 						              EXECUTE s1; 
 						              DEALLOCATE PREPARE s1;
                                       
+                                      
+						SELECT CONCAT('Creating ndwr_patient ccc numbers');
+                          drop  temporary table if exists ndwr_patient_ccc;
+                          CREATE temporary TABLE ndwr_patient_ccc(
+                          select 
+                           q.person_id,
+                           i.identifier as 'ccc_no'
+                           from 
+                           ndwr.ndwr_patient_allergies_chronic_illness_build_queue__0 q
+                           left join amrs.patient_identifier i on (i.patient_id = q.person_id AND i.identifier_type = 28 AND i.voided = 0)
+                           group by q.person_id
+                          );
+                                      
 						  
-                          drop temporary table if exists ndwr_patient_allergies_chronic_illness_interim;
                           
-                         
-                          SET @dyn_sql=CONCAT('create temporary table ndwr_patient_allergies_chronic_illness_interim (SELECT  distinct	
-                              );');
-                          
-						 SELECT CONCAT('Creating interim table');
 
-                          PREPARE s1 from @dyn_sql; 
-                          EXECUTE s1; 
-                          DEALLOCATE PREPARE s1;
+SELECT CONCAT('Creating ndwr_patient_allergies...');
+                          
+						  drop temporary table if exists ndwr_patient_allergies;
+                          CREATE temporary TABLE ndwr_patient_allergies(
+                              SELECT 
+                                    o.person_id,
+                                    o.encounter_id,
+                                    o.encounter_datetime,
+                                    o.encounter_type,
+                                    o.location_id,
+                                    CASE
+                                        WHEN (o.obs REGEXP '!!6011=1065' || o.obs REGEXP '!!6012=1065') THEN 1
+                                        ELSE NULL
+                                    END AS 'knownAllergies',
+                                    CASE
+                                        WHEN o.obs REGEXP '!!6011=1065'  AND o.obs REGEXP '!!6012=1065' THEN 'Penicillin | Sulfa'
+                                        WHEN o.obs REGEXP '!!6011=1065'  THEN 'Penicillin'
+                                        WHEN o.obs REGEXP '!!6012=1065'  THEN 'Sulfa'
+                                        ELSE NULL
+                                    END AS 'AllergyCausativeAgent',
+                                    CASE
+                                    WHEN o.obs REGEXP "!!1123=" then etl.getValues(o.obs,'1123')
+                                    ELSE NULL
+                                    END AS 'Chest',
+                                    CASE
+                                    WHEN o.obs REGEXP "!!1126=" then etl.getValues(o.obs,'1126')
+                                    ELSE NULL
+                                    END AS 'Genitourinary'
+                                FROM
+                                    ndwr.ndwr_patient_allergies_chronic_illness_build_queue__0 q
+                                        JOIN
+                                    etl.flat_obs o ON (q.person_id = o.person_id)
+                                WHERE
+                                    o.encounter_type IN (1)
+                          );
+
+                          
+
+SELECT CONCAT('Creating ndwr_patient_allergies_physical_findings...');
+                          
+                          drop temporary table if exists ndwr_patient_allergies_physical_findings;
+
+                          CREATE temporary TABLE ndwr_patient_allergies_physical_findings(
+                              SELECT
+                                    b.person_id,
+                                    b.encounter_id,
+                                    b.location_id,
+                                    GROUP_CONCAT(DISTINCT b.Skin SEPARATOR ' | ') AS `Skin`,
+                                    GROUP_CONCAT(DISTINCT b.ENT SEPARATOR ' | ') AS `ENT`,
+                                    GROUP_CONCAT(DISTINCT b.CVS SEPARATOR ' | ') AS `CVS`,
+                                    GROUP_CONCAT(DISTINCT b.Abdomen SEPARATOR ' | ') AS `Abdomen`,
+                                    GROUP_CONCAT(DISTINCT b.CNS SEPARATOR ' | ') AS `CNS`,
+                                    GROUP_CONCAT(DISTINCT b.AllergicReaction SEPARATOR ' | ') AS `AllergicReaction`
+                                    from
+                                    (SELECT 
+                                        o.person_id,
+                                        o.encounter_id,
+                                        o.location_id,
+                                        o.concept_id,
+                                        o.value_coded,
+                                        o.obs_group_id,
+                                        o.obs_id,
+                                        CASE
+                                            WHEN o.concept_id = 1120 THEN cn.name
+                                        END AS 'Skin',
+                                         CASE
+                                            WHEN o.concept_id = 2085 THEN cn.name
+                                            ELSE NULL
+                                        END AS 'AllergicReaction',
+                                        CASE
+                                            WHEN o.concept_id = 1122 THEN cn.name
+                                        END AS 'ENT',
+                                        CASE
+                                            WHEN o.concept_id = 1124 THEN cn.name
+                                        END AS 'CVS',
+                                        CASE
+                                            WHEN o.concept_id = 1125 THEN cn.name
+                                        END AS 'Abdomen',
+                                        CASE
+                                            WHEN o.concept_id = 1129 THEN cn.name
+                                        END AS 'CNS'
+                                    FROM
+                                        ndwr_patient_allergies q
+                                            JOIN
+                                        amrs.obs o ON (q.person_id = o.person_id AND q.encounter_id = o.encounter_id and o.voided = 0)
+                                            JOIN
+                                        amrs.concept_name cn ON (cn.concept_id = o.value_coded
+                                            AND cn.voided = 0
+                                            AND cn.locale_preferred = 1)
+                                    WHERE
+                                        o.concept_id IN (1120,2085,1122,1124,1125,1129)
+                                        group by o.person_id,o.encounter_id,o.obs_id
+                                        ) b
+                                        group by b.encounter_id
+                          );
+
+SELECT CONCAT('Creating chronic illness table ....');
+                         drop temporary table if exists chronic_illness;
+                         create  temporary table chronic_illness(
+                             SELECT 
+                                    o.person_id,
+                                    o.encounter_id,
+                                    o.obs_datetime,
+                                    o.location_id,
+                                    o.concept_id,
+                                    o.value_coded,
+                                    o.obs_group_id,
+                                    o.obs_id,
+                                    GROUP_CONCAT(DISTINCT cn.name SEPARATOR ' | ') AS `ChronicIllness`
+                                FROM
+                                    ndwr_patient_allergies q
+                                        JOIN
+                                    amrs.obs o ON (q.person_id = o.person_id and o.voided = 0)
+                                        JOIN
+                                    amrs.concept_name cn ON (cn.concept_id = o.value_coded
+                                        AND cn.voided = 0
+                                        AND cn.locale_preferred = 1)
+                                WHERE
+                                    o.concept_id IN (6042)
+                                    AND o.obs_group_id IS not NULL
+                                GROUP BY o.person_id, o.encounter_id
+                         );
+
+                          
+						SELECT CONCAT('Creating interim table');
+
+                         drop temporary table if exists ndwr_patient_allergies_chronic_illness_interim;
+                         create temporary table ndwr_patient_allergies_chronic_illness_interim(
+                             SELECT
+                              a.person_id AS 'PatientPK',
+                              mfl.mfl_code AS 'SiteCode',
+                              i.ccc_no AS 'PatientID',
+                               mfl.mfl_code as 'FacilityID',
+                              'AMRS' AS 'Emr',
+                              'Ampath Plus' AS 'Project',
+                               mfl.Facility AS 'FacilityName',
+                               a.encounter_id as 'VisitID',
+                               a.encounter_datetime as 'VisitDate',
+                               c.ChronicIllness,
+                               NULL AS 'ChronicOnsetDate',
+                               a.knownAllergies,
+                               a.AllergyCausativeAgent,
+                               f.AllergicReaction,
+                               NULL AS 'AllergySeverity',
+                               NULL AS 'AllergyOnsetDate',
+                               f.Skin,
+                               NULL AS 'Eyes',
+                               f.ENT,
+                               a.Chest,
+                               f.CVS,
+                               f.Abdomen,
+                               f.CNS,
+                               a.Genitourinary,
+                               NULL AS 'DateCreated'
+                             from
+                             ndwr_patient_allergies a
+                             left join ndwr_patient_allergies_physical_findings f on (f.person_id = a.person_id AND f.encounter_id = a.encounter_id)
+                             left join chronic_illness c on (c.person_id = a.person_id AND c.encounter_id = a.encounter_id)
+                             join ndwr.mfl_codes mfl ON (mfl.location_id = a.location_id)
+                             join ndwr_patient_ccc i on (i.person_id = a.person_id)
+                         );
+
+                          
 
 SELECT 
     COUNT(*)
@@ -137,7 +287,7 @@ SELECT @new_encounter_rows;
                           set @total_rows_written = @total_rows_written + @new_encounter_rows;
 SELECT @total_rows_written;
 
-                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select * from ndwr_patient_allergies_chronic_illness_interim)');
+                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select * from ndwr.ndwr_patient_allergies_chronic_illness_interim)');
 
                           PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 

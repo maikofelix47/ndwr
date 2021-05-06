@@ -1,0 +1,248 @@
+#1.Adverse Events
+SELECT 
+    PatientPK,
+    PatientID,
+    FacilityID,
+    SiteCode,
+    EMR,
+    Project,
+    AdverseEvent,
+    AdverseEventStartDate,
+    AdverseEventEndDate,
+    Severity,
+    VisitDate,
+    AdverseEventActionTaken,
+    AdverseEventClinicalOutcome,
+    AdverseEventIsPregnant,
+    AdverseEventCause,
+    AdverseEventRegimen
+FROM
+    ndwr.ndwr_patient_adverse_events;
+
+
+--------------------------------------------------------
+	
+	
+	#2.visits extract
+	SELECT 
+	    PatientPK,
+	    PatientID,
+	    FacilityID,
+	    SiteCode,
+	    Emr,
+	    Project,
+	    FacilityName,
+	    VisitID,
+	    VisitDate,
+	    Service,
+	    VisitType,
+	    WHOStage,
+	    WABStage,
+	    Pregnant,
+	    LMP,
+	    EDD,
+	    Height,
+	    Weight,
+	    BP,
+	    OI,
+	    OIDate,
+	    Adherence,
+	    AdherenceCategory,
+	    SubstitutionFirstlineRegimenDate,
+	    SubstitutionFirstlineRegimenReason,
+	    SubstitutionSecondlineRegimenDate,
+	    SubstitutionSecondlineRegimenReason,
+	    SecondlineRegimenChangeDate,
+	    SecondlineRegimenChangeReason,
+	    FamilyPlanningMethod,
+	    PwP,
+	    GestationAge,
+	    NextAppointmentDate,
+	    DifferentiatedCare,
+	    KeyPopulationType,
+	    PopulationType,
+	    StabilityAssessment
+	FROM
+	    ndwr.ndwr_all_patient_visits_extract;
+		
+		------------------------------------------------------
+		
+	#3.PatientStatusExatrct
+		SELECT 
+		    PatientPK,
+		    PatientID,
+		    FacilityID,
+		    SiteCode,
+		    Emr,
+		    Project,
+		    FacilityName,
+		    ExitDescription,
+		    ExitDate,
+		    ExitReason
+		FROM
+		    ndwr.ndwr_all_patient_status_extract;
+			
+		-----------------------------------------------------
+		
+		#4.Patient Baseline Extract
+		SELECT 
+		    PatientPK,
+		    PatientID,
+		    FacilityID,
+		    SiteCode,
+		    EMR,
+		    Project,
+		    bCD4,
+		    bCD4Date,
+		    bWAB,
+		    bWABDate,
+		    bWHO,
+		    bWHODate,
+		    eWAB,
+		    eWABDate,
+		    eCD4,
+		    eCD4Date,
+		    eWHO,
+		    eWHODate,
+		    lastWHO,
+		    lastWHODate,
+		    lastCD4,
+		    lastCD4Date,
+		    lastWAB,
+		    lastWABDate,
+		    m12CD4,
+		    m12CD4Date,
+		    m6CD4,
+		    m6CD4Date
+		FROM
+		    ndwr.ndwr_patient_baselines_extract;
+			
+	 -------------------------------------------------
+	 #5.PatientLabsExtract
+	 SELECT 
+	     PatientPK,
+	     PatientID,
+	     FacilityID,
+	     SiteCode,
+	     Emr,
+	     Project,
+	     FacilityName,
+	     SatelliteName,
+	     VisitID,
+	     OrderedbyDate,
+	     ReportedbyDate,
+	     TestName,
+	     EnrollmentTest,
+	     TestResult,
+	     Reason
+	 FROM
+	     ndwr.ndwr_patient_labs_extract;
+		 
+	--------------------------------------------------
+	#6.PatientARTExtract
+	SELECT 
+	    PatientPK,
+	    PatientID,
+	    FacilityID,
+	    SiteCode,
+	    Emr,
+	    Project,
+	    FacilityName,
+	    DOB,
+	    AgeEnrollment,
+	    AgeARTStart,
+	    AgeLastVisit,
+	    RegistrationDate,
+	    PatientSource,
+	    Gender,
+	    StartARTDate,
+	    PreviousARTStartDate,
+	    PreviousARTRegimen,
+	    StartARTAtThisFacility,
+	    StartRegimen,
+	    StartRegimenLine,
+	    LastARTDate,
+	    LastRegimen,
+	    LastRegimenLine,
+	    Duration,
+	    ExpectedReturn,
+	    Provider,
+	    LastVisit,
+	    ExitReason,
+	    ExitDate
+	FROM
+	    ndwr.ndwr_patient_art_extract;
+		
+	---------------------------------------------
+	#7.PatientPharmacy extract
+	SELECT 
+	    PatientPK,
+	    PatientID,
+	    FacilityID,
+	    SiteCode,
+	    Emr,
+	    Project,
+	    VisitID,
+	    Drug,
+	    Provider,
+	    DispenseDate,
+	    Duration,
+	    ExpectedReturn,
+	    TreatmentType,
+	    RegimenLine,
+	    PeriodTaken,
+	    ProphylaxisType
+	FROM
+	    ndwr.ndwr_pharmacy;
+		
+	---------------------------------------------
+	#8.AllPatients Extract
+	SELECT 
+	    PatientPK,
+	    PatientID,
+	    FacilityID,
+	    SiteCode,
+	    Emr,
+	    Project,
+	    FacilityName,
+	    Gender,
+	    DOB,
+	    RegistrationDate,
+	    RegistrationAtCCC,
+	    RegistrationAtPMTCT,
+	    RegistrationAtTBClinic,
+	    PatientSource,
+	    Region,
+	    District,
+	    Village,
+	    ContactRelation,
+	    LastVisit,
+	    MaritalStatus,
+	    EducationLevel,
+	    DateConfirmedHIVPositive,
+	    PreviousARTExposure,
+	    PreviousARTStartDate,
+	    StatusAtCCC,
+	    StatusAtPMTCT,
+	    StatusAtTBClinic,
+	    SatelliteName,
+	    Inschool,
+	    KeyPopulationType,
+	    Orphan,
+	    PatientResidentCounty,
+	    PatientResidentLocation,
+	    PatientResidentSubCounty,
+	    PatientResidentSubLocation,
+	    PatientResidentVillage,
+	    PatientResidentWard,
+	    PatientType,
+	    PopulationType,
+	    TransferInDate
+	FROM
+	    ndwr.ndwr_all_patients_extract;
+		
+		
+	-------------------------------------------------------
+  
+
+

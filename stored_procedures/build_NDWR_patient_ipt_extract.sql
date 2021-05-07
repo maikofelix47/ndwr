@@ -12,27 +12,30 @@ BEGIN
 CREATE TABLE IF NOT EXISTS ndwr_patient_ipt_extract (
   `PatientPK` INT NOT NULL,
   `SiteCode` INT NOT NULL,
-  `PatientID` INT NOT NULL,
+  `PatientID` VARCHAR NULL,
   `FacilityID` INT NOT NULL,
   `Emr` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
   `FacilityName` VARCHAR(50) NULL,
   `VisitID` INT NULL,
   `VisitDate` DATETIME NULL,
-  `OnTBDrugs` VARCHAR(10) NULL,
-  `OnIPT`  VARCHAR(10) NULL,
-  `EverOnIPT` VARCHAR(10) NULL,
-  `Cough` VARCHAR(10) NULL,
-  `Fever`  VARCHAR(10) NULL,
-  `NoticeableWeightLoss`  VARCHAR(10) NULL,
-  `NightSweats`  VARCHAR(10) NULL,
-  `Lethergy`  VARCHAR(10) NULL,
-  `ICFActionTaken`  VARCHAR(10) NULL,
+  `OnTBDrugs` BOOLEAN NULL,
+  `OnIPT`  BOOLEAN NULL,
+  `EverOnIPT` BOOLEAN NULL,
+  `Cough` BOOLEAN NULL,
+  `Fever`  BOOLEAN NULL,
+  `NoticeableWeightLoss`  BOOLEAN NULL,
+  `NightSweats`  BOOLEAN NULL,
+  `Lethergy`  BOOLEAN NULL,
+  `ICFActionTaken`  VARCHAR(100) NULL,
+  `ChestXrayResults` VARCHAR(100) NULL,
+  `SputumSmearResults` VARCHAR(100) NULL,
+  `GeneExpertResults` VARCHAR(100) NULL,
   `TestResult`  VARCHAR(100) NULL,
   `TBClinicalDiagnosis`  VARCHAR(100) NULL,
   `ContactsInvited`  VARCHAR(10) NULL,
-  `EvaluatedForIPT`  VARCHAR(10) NULL,
-  `StartAntiTBs`  VARCHAR(10) NULL,
+  `EvaluatedForIPT`  BOOLEAN NULL,
+  `StartAntiTBs`  BOOLEAN NULL,
   `TBRxStartDate`  DATETIME NULL,
   `TBScreening`  VARCHAR(100) NULL,
   `IPTClientWorkUp`  VARCHAR(100) NULL,
@@ -41,9 +44,10 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_ipt_extract (
   `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
    PRIMARY KEY VisitID (VisitID),
    INDEX patient_date (PatientID , VisitDate),
-   INDEX patient_id (PatientID),
-   INDEX patient_pk (PatientPK),
-   INDEX date_created (DateCreated)
+   INDEX patient_pk_ipt (PatientPK),
+   INDEX date_created (DateCreated),
+   INDEX site_code_ipt (SiteCode)
+   INDEX site_code_ipt_pk (SiteCode,PatientPK)
 );
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_patient_ipt_extract);
 
@@ -117,19 +121,204 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_ipt_extract (
 						              PREPARE s1 from @dyn_sql; 
 						              EXECUTE s1; 
 						              DEALLOCATE PREPARE s1;
-                                      
+
+                          SELECT CONCAT('Creating ndwr_patient ccc numbers');
+                          drop  temporary table if exists ndwr_patient_ccc;
+                          CREATE temporary TABLE ndwr_patient_ccc(
+                          select 
+                           q.person_id,
+                           i.identifier as 'ccc_no'
+                           from 
+                           ndwr.ndwr_patient_ipt_extract_build_queue__0 q
+                           left join amrs.patient_identifier i on (i.patient_id = q.person_id AND i.identifier_type = 28 AND i.voided = 0)
+                           group by q.person_id
+                          );
+
+
+                          drop temporary table if exists ndwr_patient_ipt_extract_0;
+
+                          
+                          create temporary table if exists ndwr_patient_ipt_extract_0(
+                              select
+                              f.person_id,
+                              f.encounter_id,
+                              f.encounter_datetime,
+                              f.location_id,
+                              f.on_ipt,
+                              f.on_tb_tx,
+                              f.tb_tx_start_date,
+                              t.tb_screening_result,
+                              o.obs
+                              from
+                              etl.flat_hiv_summary_v15b f
+                              join ndwr_patient_ipt_extract_build_queue__0 q on (q.person_id = f.person_id)
+                              left join etl.flat_obs o on (o.encounter_id = f.encounter_id and o.person_id = f.person_id)
+                          );
+
+                          drop temporary table if exists ndwr_patient_ipt_extract_1;
+
+                          set @prev_id = -1;
+                          set @cur_id = -1;
+                          set @ever_on_ipt = null;
+
+                          create temporary table ndwr_patient_ipt_extract_1(
+                              select 
+                              @prev_id := @cur_id as prev_id,
+                              @cur_id :=  b.person_id as cur_id,
+                              b.person_id as 'PatientPK',
+                              mfl.mfl_code as 'SiteCode',
+                              c.ccc_no as 'PatientID',
+                              mfl.mfl_code as 'FacilityID',
+                              'AMRS' AS Emr,
+						                  'Ampath Plus' AS 'Project',
+                              mfl.Facility AS 'FacilityName',
+                              b.encounter_id AS 'VisitID',
+                              b.encounter_datetime AS 'VisitDate',
+                              b.on_tb_tx as 'OnTBDrugs',
+                              b.on_ipt as 'OnIPT',
+                              CASE
+                                   WHEN (@ever_on_ipt IS NULL OR @ever_on_ipt = 0) THEN @ever_on_ipt := b.on_ipt
+                                   WHEN @prev_id != @cur_id THEN @ever_on_ipt:=NULL
+                                   ELSE @ever_on_ipt
+                              END as 'EverOnIPT',
+                              CASE
+                                WHEN b.obs REGEXP "!!6174=6171!!" THEN 1
+                                ELSE NULL
+                              END AS 'Cough',
+                              CASE
+                                WHEN b.obs REGEXP "!!6174=8065!!" THEN 1
+                                ELSE NULL
+                              END AS 'Fever',
+                              CASE
+                                WHEN b.obs REGEXP "!!6174=832!!" THEN 1
+                                ELSE NULL
+                              END AS 'NoticeableWeightLoss',
+                              CASE
+                                WHEN b.obs REGEXP "!!6174=8061!!" THEN 1
+                                ELSE NULL
+                              END AS 'NightSweats',
+                              NULL AS 'Lethargy',
+                              CONCAT(
+                                IF( b.obs REGEXP "!!10304=",'Gene Expert | ',''),
+                                IF(b.obs REGEXP "!!307=" ,'Sputum Smear | ',''),
+                                IF(b.obs REGEXP "!!12=" ,'Chest Xray ','')
+                                ) AS 'ICFActionTaken',
+                             CASE
+                                WHEN b.obs REGEXP "!!12=1115" THEN 'NORMAL'
+                                WHEN b.obs REGEXP "!!12=1136" THEN 'PULMONARY EFFUSION'
+                                WHEN b.obs REGEXP "!!12=1137" THEN 'MILIARY CHANGES'
+                                WHEN b.obs REGEXP "!!12=5158" THEN 'EVIDENCE OF CARDIAC ENLARGEMENT'
+                                WHEN b.obs REGEXP "!!12=6049" THEN 'INFILTRATE'
+                                WHEN b.obs REGEXP "!!12=6050" THEN 'DIFFUSE NON-MILIARY CHANGES'
+                                WHEN b.obs REGEXP "!!12=6052" THEN 'CAVITARY LESION'
+                                WHEN b.obs REGEXP "!!12=1116" THEN 'ABNORMAL'
+                                WHEN b.obs REGEXP "!!12=1118" THEN 'NOT DONE'
+                                WHEN b.obs REGEXP "!!12=10765" THEN 'ABNORMAL CHEST X-RAY'
+                                ELSE NULL
+                              END AS 'ChestXrayResults',
+                              CASE
+                                WHEN b.obs REGEXP "!!307=1304" THEN 'POOR SAMPLE QUALITY'
+                                WHEN b.obs REGEXP "!!307=664" THEN 'NEGATIVE'
+                                WHEN b.obs REGEXP "!!307=703" THEN 'POSITIVE'
+                                WHEN b.obs REGEXP "!!307=2303" THEN '3+'
+                                WHEN b.obs REGEXP "!!307=2302" THEN '2+'
+                                WHEN b.obs REGEXP "!!307=2301" THEN '1+'
+                                WHEN b.obs REGEXP "!!307=1138" THEN 'INDETERMINATE'
+                                WHEN b.obs REGEXP "!!307=1116" THEN 'ABNORMAL'
+                                WHEN b.obs REGEXP "!!307=1118" THEN 'NOT DONE'
+                                WHEN b.obs REGEXP "!!307=9047" THEN 'SCANTY'
+                                ELSE NULL
+                              END AS 'SputumSmearResults',
+                              CASE
+                                WHEN b.obs REGEXP "!!8070=1304" THEN 'POSITIVE'
+                                WHEN b.obs REGEXP "!!8070=664" THEN 'NEGATIVE'
+                                WHEN b.obs REGEXP "!!8070=1304" THEN 'POOR SAMPLE QUALITY'
+                                WHEN b.obs REGEXP "!!8070=1138" THEN 'INDETERMINATE'
+                                ELSE NULL
+                              END AS 'GeneExpertResults',
+                              NULL AS 'TBClinicalDiagnosis',
+                              NULL AS 'ContactsInvited',
+                              CASE
+                                WHEN b.obs REGEXP "!!9742=1065" THEN 1
+                                ELSE 0
+                              END AS 'EvaluatedForIPT',
+                              CASE
+                                WHEN b.on_tb_tx = 1 THEN 1
+                                WHEN b.on_tb_tx = 0 THEN 0
+                                ELSE NULL
+                              END AS 'StartAntiTBs',
+                              CASE
+                                WHEN b.on_tb_tx = 1 THEN 1
+                                WHEN b.on_tb_tx = 0 THEN 0
+                                ELSE NULL
+                              END AS 'StartAntiTBs',
+                              b.tb_tx_start_date as 'TBRxStartDate',
+                              CASE
+                              WHEN b.obs REGEXP "!!8292=1107" THEN 'No Signs'
+                              WHEN b.obs REGEXP "!!8292=6176" THEN 'On TB treatment'
+                              WHEN b.obs REGEXP "!!8292=6971" THEN 'Suspect'
+                              WHEN b.obs REGEXP "!!8292=6137" THEN 'Confirmed'
+                              WHEN b.obs REGEXP "!!8292=1118" THEN 'Not assessed'
+                              END AS 'TBScreening',
+                              NULL AS 'IPTClientWorkUp',
+                              NULL AS 'StartIPT',
+                              NULL AS 'IndicationForIPT'
+                              from
+                              ndwr_patient_ipt_extract_0 b
+                               JOIN
+                              ndwr.mfl_codes mfl ON (mfl.location_id = b.location_id)
+                              left join ndwr_patient_ccc c on (c.person_id = b.person_id )
+                              order by b.encounter_datetime asc
+                          );
+
+                          alter table ndwr_patient_ipt_extract_1 drop prev_id, drop cur_id;
 						  
                           drop temporary table if exists ndwr_patient_ipt_extract_interim;
                           
-                         
-                          SET @dyn_sql=CONCAT('create temporary table ndwr_patient_ipt_extract_interim (SELECT  distinct	
-                              );');
+                          create temporary table ndwr_patient_ipt_extract_interim(
+                            SELECT
+                              PatientPK,
+                              SiteCode,
+                              PatientID,
+                              FacilityID,
+                              Emr,
+						                  Project,
+                              FacilityName,
+                              VisitID,
+                              VisitDate,
+                              OnTBDrugs,
+                              OnIPT,
+                              EverOnIPT,
+                              Cough,
+                              Fever,
+                              NoticeableWeightLoss,
+                              NightSweats,
+                              Lethargy,
+                              ICFActionTaken,
+                              ChestXrayResults,
+                              SputumSmearResults,
+                              GeneExpertResults,
+                              CONCAT(IF(ChestXrayResults is not null,CONCAT('Chest XRay :',ChestXrayResults),'' ),
+                              IF(SputumSmearResults is not null,CONCAT('Sputum Smear :',SputumSmearResults),'' ),
+                              IF(GeneExpertResults is not null,CONCAT('Chest XRay :',GeneExpertResults),'' )) AS 'TesResult',
+                              TBClinicalDiagnosis,
+                              ContactsInvited,
+                              EvaluatedForIPT,
+                              StartAntiTBs,
+                              StartAntiTBs,
+                              TBRxStartDate,
+                              TBScreening,
+                              IPTClientWorkUp,
+                              StartIPT,
+                              IndicationForIPT
+                            from
+                            ndwr_patient_ipt_extract_1
+
+                          );
                           
 						 SELECT CONCAT('Creating interim table');
 
-                          PREPARE s1 from @dyn_sql; 
-                          EXECUTE s1; 
-                          DEALLOCATE PREPARE s1;
+                          
 
 SELECT 
     COUNT(*)

@@ -77,3 +77,9 @@ and e.encounter_type in (1) and e.encounter_datetime >= '2021-04-01 00:00:00'
 );
 CALL `ndwr`.`build_NDWR_patient_allergies_chronic_illness`("build",1,1,1,"true");
 ####################################################################
+replace into ndwr_patient_ipt_extract_build_queue (
+    select distinct person_id from etl.flat_hiv_summary_v15b where encounter_type in (1,2) 
+    and e.encounter_datetime >= '2021-04-01 00:00:00'
+);
+CALL `ndwr`.`build_ndwr_patient_ipt_extract`("build", 1,1,1,"true");
+####################################################################

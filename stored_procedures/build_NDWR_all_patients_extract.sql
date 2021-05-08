@@ -7,15 +7,15 @@ BEGIN
 					set @start = now();
 					set @table_version = "ndwr_all_patients_v1.1";
                     set @query_type=query_type;
-                    -- set @last_date_created := null;
+                    set @last_date_created := null;
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_all_patients_extract);
                     set @endDate := LAST_DAY(CURDATE());
 
 CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
-    `PKV` VARCHAR(20) NULL,
+    `Pkv` VARCHAR(20) NULL,
     `PatientPK` INT NOT NULL,
     `SiteCode` INT NOT NULL,
-    `PatientID` VARCHAR(50) NULL,
+    `PatientID` VARCHAR(30) NULL,
     `FacilityID` INT NULL,
     `Emr` VARCHAR(50) NULL,
     `Project` VARCHAR(50) NULL,
@@ -168,19 +168,24 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
 
                          select CONCAT('Creating soundex mapping ...');
 
-                          drop temporary table if exists ndwr_patient_pkv_mapping;
+                          drop temporary table if exists ndwr_patient_pkv_occcupation_mapping;
 
 
-                          create temporary TABLE  ndwr_patient_pkv_mapping(
+                          create temporary TABLE  ndwr_patient_pkv_occcupation_mapping(
                               SELECT 
                                     q.person_id,
                                     p.gender,
                                     p.birthdate,
-                                    CONCAT(p.gender,SOUNDEX(n.given_name),SOUNDEX(n.family_name),DATE_FORMAT(p.birthdate,'%Y')) as 'PKV'
+									i.identifier as 'PatientID',
+                                    cn.name as 'Occupation',
+                                    CONCAT(p.gender,n.given_name,SOUNDEX(n.given_name),SOUNDEX(n.family_name),DATE_FORMAT(p.birthdate,'%Y')) as 'Pkv'
                                 FROM
                                     ndwr.ndwr_all_patients_build_queue__0 q
                                     left join amrs.person p on (p.person_id = q.person_id AND p.voided = 0)
                                     left join amrs.person_name n on (n.person_id = q.person_id AND n.voided = 0)
+                                    left join amrs.person_attribute a on (a.person_id = q.person_id AND a.person_attribute_type_id = 42 AND a.voided = 0)
+                                    left join amrs.concept_name cn on (cn.concept_id = a.value and cn.locale_preferred = 1 AND a.value != 5622)
+                                    left join amrs.patient_identifier i on (i.patient_id = q.person_id AND i.identifier_type = 28 AND i.voided = 0)
                                     group by q.person_id
 
                           );
@@ -192,10 +197,10 @@ CREATE TABLE IF NOT EXISTS ndwr_all_patients_extract (
                           
 CREATE temporary TABLE ndwr_all_patients_interim (
     SELECT
-    pm.PKV as 'PKV',
+    pm.Pkv as 'PKV',
     t1.person_id AS 'PatientPK',
     mfl.mfl_code AS 'SiteCode',
-    i.identifier AS 'PatientID',
+    REPLACE(pm.PatientID, "-", "") AS 'PatientID',
     mfl.mfl_code AS 'FacilityID',
     'AMRS' AS Emr,
     'Ampath Plus' AS 'Project',
@@ -296,13 +301,13 @@ CREATE temporary TABLE ndwr_all_patients_interim (
         t1.arv_first_regimen_start_date,
         t1.enrollment_date) AS 'arv_first_regimen_start_date',
 	t1.rtc_date as 'rtc_date',
-    IF(t1.arv_first_regimen,
+    REPLACE(IF(t1.arv_first_regimen,
         etl.get_arv_names(t1.arv_first_regimen),
-        'unknown') AS 'arv_first_regimen',
+        'unknown'), "##", "+") AS 'arv_first_regimen',
     IF(t1.arv_first_regimen_start_date,
         t1.arv_first_regimen_start_date,
         t1.enrollment_date) AS arv_start_date,
-    etl.get_arv_names(t1.cur_arv_meds) AS 'cur_arv_meds',
+    REPLACE(etl.get_arv_names(t1.cur_arv_meds), "##", "+") AS 'cur_arv_meds',
     t1.cur_arv_line_strict as 'cur_arv_line_strict',
     t1.cur_arv_line as 'cur_arv_line',
     NULL AS 'KeyPopulationType',
@@ -316,19 +321,19 @@ CREATE temporary TABLE ndwr_all_patients_interim (
     NULL AS 'PatientType',
     'GeneralPopulation' AS 'PopulationType',
     NULL AS 'TransferInDate',
-    NULL AS 'Occupation',
+    pm.Occupation AS 'Occupation',
     NULL AS 'DateCreated'
 FROM
     etl.flat_hiv_summary_v15b t1
     INNER JOIN
     ndwr_all_patients_build_queue__0 t3 ON (t3.person_id = t1.person_id)
     left join 
-      ndwr_patient_pkv_mapping pm on (t1.person_id = pm.person_id)
+      ndwr_patient_pkv_occcupation_mapping pm on (t1.person_id = pm.person_id)
         JOIN
     ndwr.mfl_codes mfl ON (mfl.location_id = t1.location_id)
         JOIN
     amrs.location l ON (l.location_id = t1.location_id)
-    left join amrs.patient_identifier i on (i.patient_id = t1.person_id AND i.identifier_type = 28 AND i.voided = 0)
+    
 WHERE
     t1.is_clinical_encounter = 1
         AND t1.next_clinical_datetime_hiv IS NULL

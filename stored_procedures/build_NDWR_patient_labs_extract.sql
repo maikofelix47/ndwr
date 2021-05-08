@@ -5,15 +5,15 @@ BEGIN
 					set @primary_table := "ndwr_patient_labs_extract";
                     set @total_rows_written = 0;
 					set @start = now();
-					set @table_version = "ndwr_patient_labs_extract_v1.0";
+					set @table_version = "ndwr_patient_labs_extract_v1.1";
                     set @query_type= query_type;
           
           
-CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
+CREATE TABLE IF NOT EXISTS ndwr.ndwr_patient_labs_extract (
   `PatientPK` INT NOT NULL,
-  `PatientID` INT NOT NULL,
-  `FacilityID` INT NULL,
   `SiteCode` INT NULL,
+  `PatientID` VARCHAR(30) NULL,
+  `FacilityID` INT NULL,
   `Emr` VARCHAR(50) NOT NULL,
   `Project` VARCHAR(50) NOT NULL,
   `FacilityName` VARCHAR(100) NOT NULL,
@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
    INDEX patient_pk (PatientPK),
    INDEX dispense_date (OrderedbyDate),
    INDEX ordered_by_date_location (OrderedbyDate,FacilityID),
+   INDEX patient_labs_site (SiteCode),
+   INDEX patient_labs_site_visit (SiteCode,VisitID),
+   INDEX patient_labs_site_patient_pk (SiteCode,PatientPK),
    INDEX date_created (DateCreated)
 );
 
@@ -102,25 +105,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
                                 table_name = @table_version;
 
                             replace into ndwr.ndwr_patient_labs_extract_sync_queue
-                             (select distinct person_id from etl.flat_lab_obs 
-                             where 
-                             obs REGEXP '!!5497=[0-9]'
-                             AND DATE(max_date_created) >= @last_update)
-                             ;
-
-                             replace into ndwr.ndwr_patient_labs_extract_sync_queue
-                             (select distinct person_id from etl.flat_lab_obs 
-                             where 
-                             obs REGEXP '!!730=[0-9]'
-                             and DATE(max_date_created) >= @last_update)
-                             ;
-
-                             replace into ndwr.ndwr_patient_labs_extract_sync_queue
-                             (select distinct person_id from etl.flat_lab_obs 
-                             where 
-                             obs REGEXP '!!856=[0-9]'
-                             and DATE(max_date_created) >= @last_update)
-                             ;
+                             (select distinct person_id from etl.flat_lab_obs where max_date_created >= @last_update);
                              
                              SET @person_ids_count = 0;
 							 SET @dyn_sql=CONCAT('select count(*) into @person_ids_count from ',@queue_table); 
@@ -148,89 +133,43 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_labs_extract (
 						  
 					drop temporary table if exists ndwr_patient_labs_extract_interim;
                           
-				CREATE temporary TABLE ndwr.ndwr_patient_labs_extract_interim
-                   (SELECT 
-                       t.person_id AS PatientPK,
-                       t.person_id AS PatientID,
-                       t.VisitID,
-                       t.test_datetime as OrderedbyDate,
-                       t.test_datetime as ReportedbyDate,
-                       t.TestName,
-					   null AS EnrollmentTest,
-					   t.TestResult,
-                       t.TestName as LabReason,
-                       null as DateSampleTaken,
-                       null as SampleType
-                      
-                           
-                   FROM
-                       (SELECT 
-                           t1.person_id,
-                               t1.test_datetime,
-                               'CD4 Count' AS TestName,
-                               CAST(REPLACE(REPLACE((SUBSTRING_INDEX(SUBSTRING(t1.obs,
-                                                                           LOCATE('!!5497=', t1.obs)),
-                                                                       '##',
-                                                                       1)),
-                                                               '!!5497=',
-                                                               ''),
-                                                           '!!',
-                                                           '')
-                                                       AS UNSIGNED) AS TestResult,
-                               encounter_id as VisitID
-   
-                       FROM
-                       etl.flat_lab_obs t1 
-                       join ndwr.ndwr_patient_labs_extract_build_queue__0 b1 on (b1.person_id = t1.person_id)
-  					 WHERE 			 
-  					 t1.obs REGEXP '!!5497=[0-9]' 
-                           
-                           
-                           UNION  
-                           
-                           SELECT 
-                           t2.person_id,
-                               t2.test_datetime,
-                               'CD4 %' AS TestName,
-                               CAST(REPLACE(REPLACE((SUBSTRING_INDEX(SUBSTRING(t2.obs,
-                                                                           LOCATE('!!730=', t2.obs)),
-                                                                       '##',
-                                                                       1)),
-                                                               '!!730=',
-                                                               ''),
-                                                           '!!',
-                                                           '')
-                                                       AS UNSIGNED)   AS TestResult,
-                               t2.encounter_id as VisitID
-   
-                       FROM
-                           etl.flat_lab_obs t2   
-                           join ndwr.ndwr_patient_labs_extract_build_queue__0 b2 on (b2.person_id = t2.person_id)
-                           WHERE  t2.obs REGEXP '!!730=[0-9]'
-                           
-                           Union 
-                           SELECT 
-                           t3.person_id,
-                           t3.test_datetime,
-                               'VL' AS TestName,
-                               CAST(REPLACE(REPLACE((SUBSTRING_INDEX(SUBSTRING(t3.obs,
-                                                                           LOCATE('!!856=', t3.obs)),
-                                                                       '##',
-                                                                       1)),
-                                                               '!!856=',
-                                                               ''),
-                                                           '!!',
-                                                           '')
-                                                       AS UNSIGNED) AS TestResult,
-                               t3.encounter_id as VisitID
-   
-                       FROM
-                           etl.flat_lab_obs  t3  
-						   join ndwr.ndwr_patient_labs_extract_build_queue__0 b3 on (b3.person_id = t3.person_id)
-                           WHERE  
-                           t3.obs REGEXP '!!856=[0-9]'
-                           
-                           ) t 
+				CREATE temporary TABLE ndwr.ndwr_patient_labs_extract_interim(
+                SELECT 
+                            f.person_id as 'PatientPK',
+                            t.SiteCode,
+                            t.PatientID,
+                            t.FacilityID,
+                            t.Emr,
+                            t.Project,
+                            t.FacilityName,
+                            NULL AS 'SatelliteName',
+                            IF(f.encounter_id IS NOT NULL, f.encounter_id,f.obs_id) as 'VisitID',
+                            IF(o.date_activated IS NOT NULL,o.date_activated,f.obs_datetime) AS 'OrderedbyDate',
+                            f.obs_datetime as 'ReportedbyDate',
+                            CASE
+                            WHEN f.concept_id = 856 THEN 'VL'
+                            WHEN f.concept_id = 730 THEN 'CD4 %'
+                            WHEN f.concept_id = 5497 THEN 'CD4 Count'
+                            ELSE NULL
+                            END AS 'TestName',
+                            NULL AS 'EnrollmentTest',
+                            f.value_numeric as 'TestResult',
+                            o.urgency AS 'LabReason',
+                            DATE(f.obs_datetime) AS 'DateSampleTaken',
+                            NULL AS 'Sample Type',
+                            NULL AS 'DateCreated'
+                        FROM
+                            ndwr_patient_labs_extract_build_queue__0 q
+                            join amrs.obs f on (f.person_id = q.person_id)
+                            left join amrs.orders o on (f.order_id = o.order_id)
+                            LEFT OUTER JOIN
+                            amrs.obs `t7` ON (o.order_id = t7.order_id
+                                AND (t7.voided IS NULL || t7.voided = 0)
+                                AND t7.concept_id = 10189)
+                            join ndwr.ndwr_all_patients_extract t on (t.PatientPK = f.person_id)
+                        WHERE
+                            f.concept_id in (856,730,5497)
+                            and f.voided = 0
                            );
                           
                          
@@ -247,30 +186,7 @@ SELECT @new_encounter_rows;
                           set @total_rows_written = @total_rows_written + @new_encounter_rows;
 SELECT @total_rows_written;
 
-                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select 
-                           i.PatientPK,
-                           i.PatientID,
-						   t.FacilityID AS FacilityID,
-                           t.SiteCode AS SiteCode,
-					       "AMRS" AS Emr,
-					       "Ampath Plus" AS Project,
-                           t.FacilityName AS FacilityName,
-                           null as SatelliteName,
-                           i.VisitID,
-                           i.OrderedbyDate,
-                           i.ReportedbyDate,
-                           i.TestName,
-					       i.EnrollmentTest,
-					       i.TestResult,
-                           i.LabReason,
-                           i.DateSampleTaken,
-                           i.SampleType,
-                           null as DateCreated
-                          
-                          from ndwr_patient_labs_extract_interim i
-                          join ndwr.ndwr_all_patients_extract t on (t.PatientID = i.PatientID)
-                          
-                          )');
+                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select * from ndwr_patient_labs_extract_interim i)');
 
                           PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 

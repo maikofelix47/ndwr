@@ -5,7 +5,7 @@ select distinct person_id from etl.flat_hiv_summary_v15b where is_clinical_encou
 CALL `ndwr`.`build_NDWR_all_patients_extract`("build",1, 10, 1,"true");
 #################################
 replace into ndwr.ndwr_patient_adverse_events_build_queue (
-select distinct PatientID from ndwr.ndwr_all_patients_extract
+select distinct PatientPK from ndwr.ndwr_all_patients_extract
 );
 CALL `ndwr`.`build_NDWR_adverse_event`("build",1,1,1,true);
 ##################################
@@ -15,7 +15,7 @@ select distinct PatientID from ndwr.ndwr_all_patients_extract
 CALL `ndwr`.`build_NDWR_patient_art_extract`("build",1,1,1,true);
 ##################################
 replace into ndwr.ndwr_all_patient_status_extract_build_queue (
-select distinct PatientID from ndwr.ndwr_all_patients_extract where StatusAtCCC in('dead','ltfu','transfer_out')
+select distinct PatientPK from ndwr.ndwr_all_patients_extract where StatusAtCCC in('dead','ltfu','transfer_out') limit 5
 );
 CALL `ndwr`.`build_NDWR_all_patient_status_extract`("build",1,1,1,true);
 ###################################
@@ -31,7 +31,7 @@ select distinct person_id from amrs.obs where concept_id in (856,730,5497)
 CALL `ndwr`.`build_NDWR_ndwr_patient_labs_extract`("build",1,1,1,true);
 ###################################
 replace into ndwr.ndwr_all_patient_visits_extract_build_queue (
-select distinct PatientID from ndwr.ndwr_all_patients_extract
+select distinct PatientPK from ndwr.ndwr_all_patients_extract
 );
 CALL `ndwr`.`build_NDWR_all_patient_visits_extract`("build",1,1,1,true);
 ##################################

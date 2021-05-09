@@ -11,9 +11,9 @@ BEGIN
 
 CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_status_extract` (
     `PatientPK` INT NOT NULL,
-    `PatientID` INT NOT NULL,
+    `PatientID` VARCHAR(30) NULL,
     `FacilityId` INT NOT NULL,
-    `SiteCode` VARCHAR(50) NULL,
+    `SiteCode` INT NULL,
     `Emr` VARCHAR(50) NULL,
     `Project` VARCHAR(50) NULL,
     `FacilityName` VARCHAR(50) NOT NULL,
@@ -22,13 +22,14 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_status_extract` (
     `ExitReason` VARCHAR(200) NULL,
     `TOVerified` TINYINT NULL,
     `TOVerifiedDate` DATETIME NULL,
+    `ReEnrollmentDate` DATETIME NULL,
     `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-     INDEX status_patient_id (PatientID),
-     INDEX status_patient_pk (PatientPK),
-     INDEX status_facility_id (FacilityID),
-     INDEX status_site_code (SiteCode),
-     INDEX status_date_created (DateCreated),
-     INDEX status_patient_facility (PatientID,FacilityID)
+    INDEX status_patient_id (PatientID),
+    INDEX status_patient_pk (PatientPK),
+    INDEX status_facility_id (FacilityID),
+    INDEX status_site_code (SiteCode),
+    INDEX status_date_created (DateCreated),
+    INDEX status_patient_facility (PatientID , FacilityID)
 );
 
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_all_patient_status_extract);
@@ -61,24 +62,24 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_status_extract` (
                     EXECUTE s1; 
                     DEALLOCATE PREPARE s1;
 
-                    SELECT @person_ids_count AS 'num patients to build';
+SELECT @person_ids_count AS 'num patients to build';
 
 				  end if;
                    if (@query_type="sync") then
                             select 'SYNCING..........................................';
                             set @write_table = concat("ndwr_all_patient_status_extract_temp_",queue_number);
                             set @queue_table = "ndwr_all_patient_status_extract_sync_queue";
-                            CREATE TABLE IF NOT EXISTS ndwr_all_patient_status_extract_sync_queue (
-                                person_id INT PRIMARY KEY
-                            );                            
+CREATE TABLE IF NOT EXISTS ndwr_all_patient_status_extract_sync_queue (
+    person_id INT PRIMARY KEY
+);                            
                             
                             set @last_update = null;
-                            SELECT 
-                                MAX(date_updated)
-                            INTO @last_update FROM
-                                ndwr.flat_log
-                            WHERE
-                                table_name = @table_version;
+SELECT 
+    MAX(date_updated)
+INTO @last_update FROM
+    ndwr.flat_log
+WHERE
+    table_name = @table_version;
 
                             replace into ndwr_all_patient_status_extract_sync_queue
                              (select distinct PatientID from ndwr.ndwr_all_patients where DateCreated >= @last_update);
@@ -111,7 +112,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_status_extract` (
 SELECT CONCAT('Creating and populating interim status table ..');
                           
                 create temporary table ndwr_all_patient_status_extract_interim (
-                     select
+				   select
                    t1.PatientPK,
                    t1.PatientID,
                    t1.FacilityId,
@@ -119,15 +120,16 @@ SELECT CONCAT('Creating and populating interim status table ..');
 				   t1.Emr,
                    t1.Project,
                    t1.FacilityName,
-				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as 'ExitDescription',
-				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null) as 'ExitDate',
-                   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as 'ExitReason',
-                   null as 'TOVerified',
-                   null as 'TOVerifiedDate'
+				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitDescription,
+				   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),t1.lastVisit,null) as ExitDate,
+                   if(t1.StatusAtCCC in('dead','ltfu','transfer_out'),StatusAtCCC,null) as ExitReason,
+				   null as 'TOVerified',
+                   null as 'TOVerifiedDate',
+                   NULL AS 'ReEnrollmentDate',
                    null as 'DateCreated'
-                 
-                    from ndwr.ndwr_all_patients_extract t1
-                    inner join ndwr.ndwr_all_patient_status_extract_build_queue__0 t2 on (t1.PatientID = t2.person_id)
+				   from 
+                   ndwr_all_patient_status_extract_build_queue__0 q
+				   join ndwr.ndwr_all_patients_extract t1 on (t1.PatientPK = q.person_id)
                      where t1.StatusAtCCC in('dead','ltfu','transfer_out')
 					);
                           

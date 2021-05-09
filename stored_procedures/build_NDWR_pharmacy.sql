@@ -5,17 +5,18 @@ BEGIN
 					set @primary_table := "ndwr_pharmacy";
                     set @total_rows_written = 0;
 					set @start = now();
-					set @table_version = "ndwr_pharmacy_v1.0";
+					set @table_version = "ndwr_pharmacy_v1.1";
                     set @query_type= query_type;
           
           
-CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
+CREATE TABLE IF NOT EXISTS ndwr.ndwr_pharmacy (
   `PatientPK` INT NOT NULL,
-  `PatientID` INT NOT NULL,
-  `FacilityID` INT NOT NULL,
   `SiteCode` INT NOT NULL,
+  `PatientID` VARCHAR(30) NULL,
+  `FacilityID` INT NOT NULL,
   `Emr` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
+  `FacilityName` VARCHAR(100) NULL,
   `VisitID` INT NOT NULL,
   `Drug` VARCHAR(100) NULL,
   `Provider` VARCHAR(50) NULL,
@@ -35,8 +36,11 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
    INDEX patient_date (PatientID , DispenseDate),
    INDEX patient_id (PatientID),
    INDEX patient_pk (PatientPK),
+   INDEX patient_ph_site_code (SiteCode),
    INDEX dispense_date (DispenseDate),
    INDEX dispense_date_location (DispenseDate,FacilityID),
+   INDEX patient_ph_site_visit_id (SiteCode,VisitID),
+   INDEX patient_ph_site_patient_pk (SiteCode,PatientPK),
    INDEX date_created (DateCreated)
 );
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_pharmacy);
@@ -71,7 +75,7 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
 
                             SELECT @person_ids_count AS 'num patients to build';
                    
-                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
+                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientPK);'); 
 				                    SELECT CONCAT('Deleting patient records in interim ', @primary_table);
 				                    PREPARE s1 from @dyn_sql; 
 				                    EXECUTE s1; 
@@ -114,40 +118,40 @@ CREATE TABLE IF NOT EXISTS ndwr_pharmacy (
                                       
 						  
                           drop temporary table if exists ndwr_pharmacy_interim;
-                          
-                         
-                          SET @dyn_sql=CONCAT('create temporary table ndwr_pharmacy_interim (SELECT  distinct	
-                               t1.person_id as PatientPK,
-                               t1.person_id as PatientID,
-                               mfl.mfl_code as FacilityID,
-                               mfl.mfl_code as SiteCode,
-							   "AMRS" as Emr,
-							   "Ampath Plus" as Project,
-							   encounter_id as VisitID,
-                               etl.get_arv_names(cur_arv_meds) as Drug,
-                               "Government" as Provider,
-                               encounter_datetime as DispenseDate,
-							   DATEDIFF(rtc_date,encounter_datetime) as Duration,
-                               rtc_date as ExpectedReturn,
-                               "HIV Treatment" as TreatmentType,
-                               null AS RegimenLine,
-							   null as PeriodTaken,
-                               null as ProphylaxisType,
-                               null as RegimenChangedSwitched,
-                               null as RegimenChangeSwitchReason,
-                               null as StopRegimenReason,
-                               null as StopRegimenDate
-                                FROM
-                                  etl.flat_hiv_summary_v15b t1
-                                left join ndwr.mfl_codes mfl on (mfl.location_id = t1.location_id)
-                                inner join ndwr_pharmacy_build_queue__0 t3 on (t3.person_id = t1.person_id)
-                                where t1.cur_arv_meds is not null);');
-                          
+						
 						 SELECT CONCAT('Creating interim table');
+                         
+                          create temporary table ndwr_pharmacy_interim (SELECT  distinct	
+                               t.PatientPK,
+                               mfl.mfl_code as 'SiteCode',
+                               t.PatientID,
+                               mfl.mfl_code as 'FacilityID',
+							   t.Emr,
+							   t.Project,
+                               mfl.Facility AS FacilityName,
+							   t1.encounter_id as 'VisitID',
+                               REPLACE(etl.get_arv_names(t1.cur_arv_meds),"##", "+") as 'Drug',
+                               "Government" as 'Provider',
+                               t1.encounter_datetime as 'DispenseDate',
+							   DATEDIFF(t1.rtc_date,t1.encounter_datetime) as 'Duration',
+                               t1.rtc_date as 'ExpectedReturn',
+                               "HIV Treatment" as 'TreatmentType',
+                               null AS 'RegimenLine',
+							   null as 'PeriodTaken',
+                               null as 'ProphylaxisType',
+                               null as 'RegimenChangedSwitched',
+                               null as 'RegimenChangeSwitchReason',
+                               null as 'StopRegimenReason',
+                               null as 'StopRegimenDate',
+                               NULL AS 'DateCreated'
+                                FROM
+                                ndwr_pharmacy_build_queue__0 q
+                                inner join etl.flat_hiv_summary_v15b t1 on (t1.person_id = q.person_id)
+                                inner join ndwr.mfl_codes mfl on (mfl.location_id = t1.location_id)
+                                inner join ndwr.ndwr_all_patients_extract t on (t.PatientPK = t1.person_id)
+                                where t1.cur_arv_meds is not null);
 
-                          PREPARE s1 from @dyn_sql; 
-                          EXECUTE s1; 
-                          DEALLOCATE PREPARE s1;
+                         
 
 SELECT 
     COUNT(*)

@@ -12,7 +12,7 @@ BEGIN
 CREATE TABLE IF NOT EXISTS ndwr.ndwr_ovc_patient_visits; (
   `PatientPK` INT NOT NULL,
   `SiteCode` INT NOT NULL,
-  `PatientID` INT NOT NULL,
+  `PatientID` VARCHAR(30) NULL,
   `Emr` VARCHAR(20) NULL,
   `Project` VARCHAR(20) NULL,
   `FacilityName` VARCHAR(100) NULL,
@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS ndwr.ndwr_ovc_patient_visits; (
    INDEX all_ovc_patient_extract_sc (SiteCode),
    INDEX all_ovc_patient_extract_visit_id (VisitID),
    INDEX all_ovc_patient_extract_pk_site_list (PatientPK,SiteCode),
+   INDEX all_ovc_patient_extract_pk_site_visit (SiteCode,VisitID),
    INDEX date_created (DateCreated)
 );
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_ovc_patient_visits_extract);
@@ -109,30 +110,52 @@ CREATE TABLE IF NOT EXISTS ndwr.ndwr_ovc_patient_visits; (
                           drop temporary table if exists ndwr_ovc_patient_enrollments;
                           create temporary table ndwr_ovc_patient_enrollments(
                               select 
-                              patient_id,
-                              date_enrolled,
-                              location_id as 'enrollment_location_id',
-                              date_completed as 'ovc_completion_date'
+                              pp.patient_id,
+                              pp.date_enrolled,
+                              pp.location_id as 'enrollment_location_id',
+                              pp.date_completed as 'ovc_completion_date'
                               from 
                               ndwr_ovc_patient_visits_extract_build_queue__0 q
                               join amrs.patient_program  pp on (pp.patient_id = q.person_id AND )
-                              where pp.program_id in (2)
+                              where pp.program_id in (2) AND pp.voided = 0
+                              group by pp.patient_id
                           );
 
                           create temporary table ndwr_ovc_visits_1(
                               select
-                              o.person_id,
-                              o.encounter_id,
-                              o.encounter_datetime,
-                              o.location_id
+                              o.person_id as 'PatientPK',
+                              mfl.mfl_code as 'SiteCode',
+                              t.PatientID as 'PatientID',
+                              t.Emr,
+							  t.Project,
+                              mfl.Facility AS 'FacilityName',
+                              o.encounter_id as 'VisitID',
+                              o.encounter_datetime AS 'VisitDate',
+                              e.date_enrolled as 'OVCEnrollmentDate',
+                              NULL AS 'RelationshipToClient',
+                              NULL AS 'EnrolleInCPIMS',
+                              NULL AS 'CPIMSUniqueIdentifier',
+                              CASE
+                                    WHEN oe.obs REGEXP '!!1596=8204!!' THEN 'Graduated'
+                                    WHEN oe.obs REGEXP '!!1596=11292!!' THEN 'Attrition'
+                                    WHEN oe.obs REGEXP '!!1596=10119!!' THEN 'Transfer out'
+                                    WHEN oe.obs REGEXP '!!1596=8640!!' THEN 'Wrong enrollment'
+                                    ELSE NULL
+                              END AS 'OVCExitReason',
+                              oe.encounter_datetime as 'ExitDate'
                               FROM
                                     ndwr.ndwr_ovc_patient_visits_extract_build_queue__0 q
                                         JOIN
                                     etl.flat_obs o ON (q.person_id = o.person_id)
+                                       join 
+                                     ndwr_ovc_patient_enrollments e on (e.patient_id = q.person_id)
                                         JOIN
                                     ndwr.mfl_codes mfl ON (mfl.location_id = o.location_id)
+                                    LEFT JOIN etl.flat_obs oe on (oe.person_id = q.person_id AND oe.encounter_type in (220))
+                                    inner join ndwr.ndwr_all_patients_extract t on (t.PatientPK = q.person_id)
                                 WHERE
-                                    o.encounter_type IN (17,110,116,132,152,)
+                                    o.encounter_type IN (17,110,116,132,152,220)
+                                    AND ((o.encounter_datetime <= oe.encounter_datetime) OR oe.encounter_datetime is null))
 
                           );
                           

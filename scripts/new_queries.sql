@@ -42,9 +42,11 @@ replace into ndwr.ndwr_patient_baselines_extract_build_queue (
 CALL `ndwr`.`build_ndwr_patient_baselines_extract`("build",1,1,true);
 ##############################################
 replace into ndwr.ndwr_patient_depression_screening_build_queue(
-select distinct o.person_id from etl.flat_obs o where
-o.encounter_type IN (105,106,129,110,129,140,163,191)
-AND o.obs regexp '!!7806=' and obs.encounter_datetime >= '2021-01-01 00:00:00');
+select distinct 
+o.person_id from amrs.obs o where
+ o.concept_id in(7806,7807,7808,7809,7810,7811,7812,7813,7814)
+ and o.voided = 0 and date_created >= '2021-01-01 00:00:00'
+);
 CALL `ndwr`.`build_ndwr_patient_depression_screening`("build",1,10,1,"true");
 #############################################################
 replace into ndwr.ndwr_patient_contact_listing_build_queue(
@@ -84,3 +86,13 @@ replace into ndwr_patient_ipt_extract_build_queue (
 );
 CALL `ndwr`.`build_ndwr_patient_ipt_extract`("build", 1,1,1,"true");
 ####################################################################
+replace into ndwr.ndwr_ovc_patient_visits_extract_build_queue(
+ select                   
+                              distinct pp.patient_id
+                              from 
+                              amrs.patient_program  pp
+                              where pp.program_id in (2) AND pp.voided = 0
+                              AND pp.location_id not in (195)
+                              AND pp.date_created >= '2021-04-01 00:00:00'
+                              group by pp.patient_id
+);

@@ -7,7 +7,6 @@ SELECT
     FacilityName,
     VisitID,
     VisitDate,
-    DrinkAlcohol AS 'TEST',
     CASE
         WHEN DrinkAlcohol = 1090  THEN 'Never'
         WHEN DrinkAlcohol = 1091  THEN 'Monthly or less'

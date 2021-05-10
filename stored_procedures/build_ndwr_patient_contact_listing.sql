@@ -9,32 +9,33 @@ BEGIN
                     set @query_type= query_type;
           
           
-CREATE TABLE IF NOT EXISTS ndwr_patient_contact_listing (
-    `PatientPK` INT NOT NULL,
-    `SiteCode` INT NOT NULL,
-    `PatientID` VARCHAR(30) NULL,
-    `Emr` VARCHAR(50) NULL,
-    `Project` VARCHAR(50) NULL,
-    `FacilityName` VARCHAR(100) NULL,
-    `VisitID` INT NOT NULL,
-    `VisitDate` DATETIME NOT NULL,
-    `PartnerPersonID` VARCHAR(100) NULL,
-    `ContactAge` INT NULL,
-    `ContactSex` TINYINT NULL,
-    `ContactMaritalStatus` INT NULL,
-    `RelationshipWithPatient` INT NULL,
-    `ScreenedForIpv` BOOLEAN NULL,
-    `IpvScreening` INT NULL,
-    `IpvScreeningOutcome` INT NULL,
-    `CurrentlyLivingWithIndexClient` BOOLEAN NULL,
-    `KnowledgeOfHivStatus` BOOLEAN NULL,
-    `PnsApproach` INT NULL,
-    `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX patient_cl_pk (PatientPK),
-    INDEX patient_cl_pid (PatientID),
-    INDEX patient_cl_sc (SiteCode),
-    INDEX patient_pk_site_list (PatientPK , SiteCode),
-    INDEX date_created (DateCreated)
+CREATE TABLE IF NOT EXISTS ndwr.ndwr_patient_contact_listing (
+  `PatientPK` INT NOT NULL,
+  `SiteCode` INT NOT NULL,
+  `PatientID` VARCHAR(30) NULL,
+  `Emr` VARCHAR(50) NULL,
+  `Project` VARCHAR(50) NULL,
+  `FacilityName` VARCHAR(100) NULL,
+  `VisitID` INT NOT NULL,
+  `VisitDate` DATETIME NOT NULL,
+  `PartnerPersonID`  VARCHAR(100) NULL,
+  `ContactAge` INT NULL,
+  `ContactSex` TINYINT NULL,
+  `ContactMaritalStatus` INT NULL,
+  `RelationshipWithPatient` INT NULL,
+  `ScreenedForIpv` BOOLEAN NULL,
+  `IpvScreening`  INT NULL,
+  `IpvScreeningOutcome` INT NULL,
+  `CurrentlyLivingWithIndexClient` BOOLEAN NULL,
+  `KnowledgeOfHivStatus` BOOLEAN NULL,
+  `PnsApproach`  INT NULL,
+  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   INDEX patient_cl_pk (PatientPK),
+   INDEX patient_cl_pid (PatientID),
+   INDEX patient_cl_sc (SiteCode),
+   INDEX patient_pk_site_list (PatientPK,SiteCode),
+   INDEX patient_cl_site_visit (SiteCode,VisitID),
+   INDEX date_created (DateCreated)
 );
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_patient_contact_listing);
 
@@ -66,12 +67,10 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_contact_listing (
                             EXECUTE s1; 
                             DEALLOCATE PREPARE s1;
 
-SELECT @person_ids_count AS 'num patients to build';
+                            SELECT @person_ids_count AS 'num patients to build';
                    
-                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);');
-				SELECT 
-    CONCAT('Deleting patient records in interim ',
-            @primary_table);
+                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientPK);'); 
+				                    SELECT CONCAT('Deleting patient records in interim ', @primary_table);
 				                    PREPARE s1 from @dyn_sql; 
 				                    EXECUTE s1; 
 				                    DEALLOCATE PREPARE s1;  
@@ -81,17 +80,17 @@ SELECT @person_ids_count AS 'num patients to build';
                             select 'SYNCING..........................................';
                             set @write_table = concat("ndwr_patient_contact_listing_temp_",queue_number);
                             set @queue_table = "ndwr_patient_contact_listing_sync_queue";
-CREATE TABLE IF NOT EXISTS ndwr_patient_contact_listing_sync_queue (
-    person_id INT PRIMARY KEY
-);                            
+                            CREATE TABLE IF NOT EXISTS ndwr_patient_contact_listing_sync_queue (
+                                person_id INT PRIMARY KEY
+                            );                            
                             
                             set @last_update = null;
-SELECT 
-    MAX(date_updated)
-INTO @last_update FROM
-    ndwr.flat_log
-WHERE
-    table_name = @table_version;
+                            SELECT 
+                                MAX(date_updated)
+                            INTO @last_update FROM
+                                ndwr.flat_log
+                            WHERE
+                                table_name = @table_version;
 
                             replace into ndwr_patient_contact_listing_sync_queue
                              (select distinct person_id from etl.flat_hiv_summary_v15b where date_created >= @last_update);
@@ -116,7 +115,7 @@ WHERE
 
                             drop temporary table if exists contact_listing_flat_obs;
                             
-SELECT CONCAT('Creating contact listig flat obs');
+                            select concat('Creating contact listig flat obs');
 
                             set @boundary := "!!";
                             create temporary table contact_listing_flat_obs(select
@@ -169,9 +168,9 @@ SELECT CONCAT('Creating contact listig flat obs');
                                         SELECT 
                                         c.person_id AS 'PatientPK',
                                         mfl.mfl_code AS 'SiteCode',
-                                        i.identifier AS 'PatientID',
-                                        'AMRS' AS 'Emr',
-                                        'AMPATH' AS 'Project',
+                                        t.PatientID as 'PatientID',
+                                        t.Emr as 'Emr',
+							            t.Project as 'Project',
                                         mfl.Facility AS 'FacilityName',
                                         c.encounter_id as 'VisitID',
                                         c.encounter_datetime as 'VisitDate',
@@ -228,10 +227,10 @@ SELECT CONCAT('Creating contact listig flat obs');
                                         contact_listing_flat_obs c
                                         JOIN
                                         ndwr.mfl_codes mfl ON (mfl.location_id = c.location_id)
-                                        left join amrs.patient_identifier i on (i.patient_id = c.person_id AND i.identifier_type = 28 AND i.voided = 0)
+                                        join ndwr.ndwr_all_patients_extract t on (t.PatientPK = c.person_id)
                           );
                           
-						SELECT CONCAT('Creating interim table');
+						 SELECT CONCAT('Creating interim table');
 
                          
 

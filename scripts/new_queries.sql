@@ -67,8 +67,13 @@ replace into ndwr.ndwr_gbv_screening_build_queue(
 CALL `ndwr`.`build_ndwr_gbv_screening`("build",1,1,1,"true");
 ####################################################################
 replace into ndwr.ndwr_drug_alcohol_screening_build_queue(
-        select distinct person_id from etl.flat_obs where encounter_type in (1) AND
-        encounter_datetime >= '2021-04-01 00:00:00'
+SELECT 
+    distinct person_id
+FROM
+    amrs.obs o
+    join amrs.encounter e on (e.encounter_id = o.encounter_id)
+    where o.concept_id in (5319) and e.encounter_type in (1)
+    and o.date_created >= '2021-04-01 00:00:00'
 );
 CALL `ndwr`.`build_ndwr_drug_alcohol_screening`("build",1,1,1,"true");
 ####################################################################

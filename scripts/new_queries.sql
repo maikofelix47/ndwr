@@ -10,7 +10,7 @@ select distinct PatientPK from ndwr.ndwr_all_patients_extract
 CALL `ndwr`.`build_NDWR_adverse_event`("build",1,1,1,true);
 ##################################
 replace into ndwr.ndwr_patient_art_extract_build_queue (
-select distinct PatientID from ndwr.ndwr_all_patients_extract
+select distinct PatientPK from ndwr.ndwr_all_patients_extract
 );
 CALL `ndwr`.`build_NDWR_patient_art_extract`("build",1,1,1,true);
 ##################################

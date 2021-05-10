@@ -5,16 +5,16 @@ BEGIN
 					set @primary_table := "ndwr_patient_baselines_extract";
           set @total_rows_written = 0;
 					set @start = now();
-					set @table_version = "ndwr_patient_baselines_extract_v1.0";
+					set @table_version = "ndwr_patient_baselines_extract_v1.1";
           set @query_type= query_type;
           set @cycle_size = 1;
           
           
 CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
   `PatientPK` INT NOT NULL,
-  `PatientID` INT NOT NULL,
-  `FacilityID` INT NULL,
   `SiteCode` INT NOT NULL,
+  `PatientID` VARCHAR(30) NOT NULL,
+  `FacilityID` INT NULL,
   `EMR` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
   `bCD4` INT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
   `m6CD4` INT NULL,
   `m6CD4Date` DATETIME NULL,
   `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	 INDEX baseline_patient_id (PatientID),
+   INDEX baseline_patient_id (PatientID),
    INDEX baseline_patient_pk (PatientPK),
    INDEX baseline_facility_id (FacilityID),
    INDEX baselinne_site_code (SiteCode),
@@ -621,7 +621,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
                          b.v_l_date_after_12month_arv as `twelveMonthVLDate`,
                          if(b.lastCd4_date,b.lastCd4_date,b.v_l_date_after_12month_arv) as VisitDate
 						 from patient_base_line b
-						 inner join ndwr.ndwr_all_patients_extract t1 on (t1.PatientID = b.person_id)
+						 inner join ndwr.ndwr_all_patients_extract t1 on (t1.PatientPK = b.person_id)
 						 inner join ndwr_patient_baselines_extract_build_queue__0 q on (q.person_id = b.person_id)
                                  );
 
@@ -632,11 +632,11 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
             CREATE temporary TABLE ndwr_patient_baselines_extract_interim (
                   select 
                      b.PatientPK,
-                     b.PatientID,
+					 b.SiteCode,
+                     a.PatientID,
                      b.SiteCode as FacilityId,
-                     b.SiteCode,
                      'AMRS' as EMR,
-                     'Ampath' as Project,
+                     'Ampath Plus' as Project,
 					 b.bCD4,
                      b.bCD4Date,
                      null as bWAB,
@@ -662,7 +662,8 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
                      null as DateCreated
 				           from 
                    ndwr.ndwr_base_line b
-                   inner join ndwr_patient_baselines_extract_build_queue__0 q on (b.PatientID = q.person_id)
+                   inner join ndwr_patient_baselines_extract_build_queue__0 q on (b.PatientPK = q.person_id)
+				   join ndwr.ndwr_all_patients_extract a on (a.PatientPK = q.person_id)
                 );
 
 

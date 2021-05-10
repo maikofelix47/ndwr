@@ -109,9 +109,9 @@ CREATE TABLE IF NOT EXISTS ndwr_drug_alcohol_screening (
                               select
                                 o.person_id AS 'PatientPK',
                                 mfl.mfl_code AS 'SiteCode',
-                                i.identifier AS 'PatientID',
-                                'AMRS' AS 'Emr',
-                                'AMPATH' AS 'Project',
+                                t.PatientID as 'PatientID',
+                                t.Emr as 'Emr',
+							    t.Project as 'Project',
                                 mfl.Facility AS 'FacilityName',
                                 o.encounter_id AS 'VisitID',
                                 o.encounter_datetime AS 'VisitDate',
@@ -128,8 +128,9 @@ CREATE TABLE IF NOT EXISTS ndwr_drug_alcohol_screening (
                               etl.flat_obs o on (o.person_id = q.person_id)
                               JOIN
                               ndwr.mfl_codes mfl ON (mfl.location_id = o.location_id)
-                              left join amrs.patient_identifier i on (i.patient_id = q.person_id AND i.identifier_type = 28 AND i.voided = 0)
+                               join ndwr.ndwr_all_patients_extract t on (t.PatientPK = q.person_id)
                               where o.encounter_type in (1)
+                              AND o.obs REGEXP '!!5319='
                           );
 
 SELECT 

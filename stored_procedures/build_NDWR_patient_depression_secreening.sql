@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_depression_screening (
                                     mfl.mfl_code AS 'SiteCode',
                                     t.PatientID as 'PatientID',
                                     mfl.mfl_code AS 'FacilityID',
+                                    mfl.Facility AS 'FacilityName',
 									t.Emr as 'Emr',
 							        t.Project as 'Project',
                                     o.encounter_id as 'VisitID',

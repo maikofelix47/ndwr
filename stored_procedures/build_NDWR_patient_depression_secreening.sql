@@ -9,11 +9,12 @@ BEGIN
                     set @query_type= query_type;
           
           
-CREATE TABLE IF NOT EXISTS ndwr_patient_depression_screening (
+CREATE TABLE IF NOT EXISTS ndwr.ndwr_patient_depression_screening (
   `PatientPK` INT NOT NULL,
   `SiteCode` INT NOT NULL,
   `PatientID` VARCHAR(30) NULL,
   `FacilityID` INT NOT NULL,
+  `FacilityName` VARCHAR(50) NULL,
   `Emr` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
   `VisitID` INT NULL,
@@ -70,7 +71,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_depression_screening (
 
                             SELECT @person_ids_count AS 'num patients to build';
                    
-                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
+                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientPK);'); 
 				                    SELECT CONCAT('Deleting patient records in interim ', @primary_table);
 				                    PREPARE s1 from @dyn_sql; 
 				                    EXECUTE s1; 

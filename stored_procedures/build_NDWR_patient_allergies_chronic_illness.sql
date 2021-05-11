@@ -296,6 +296,23 @@ SELECT CONCAT('Creating chronic illness table ....');
                              join ndwr.ndwr_all_patients_extract t on (t.PatientPK = a.person_id)
                          );
 
+                         -- Remove encounters with no chronic or allergy data
+                         SELECT CONCAT('Remove encounters with no chronic or allergy data ..');
+                         DELETE FROM ndwr_patient_allergies_chronic_illness_interim 
+                            WHERE
+                                ChronicIllness IS NULL 
+                                AND knownAllergies IS NULL
+                                AND AllergyCausativeAgent IS NULL
+                                AND AllergicReaction IS NULL
+                                AND Skin IS NULL
+                                AND Eyes IS NULL
+                                AND ENT IS NULL
+                                AND Chest IS NULL
+                                AND CVS IS NULL
+                                AND Abdomen IS NULL
+                                AND CNS IS NULL
+                                AND Genitourinary IS NULL;
+
                           
 
 SELECT 

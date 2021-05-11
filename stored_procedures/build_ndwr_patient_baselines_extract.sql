@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_patient_baselines_extract` (
 
                    					SELECT @person_ids_count AS 'num patients to build';
                    
-                   					SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
+                   					SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientPK);'); 
 														SELECT CONCAT('Deleting patient records in interim ', @primary_table);
 														PREPARE s1 from @dyn_sql; 
 														EXECUTE s1; 

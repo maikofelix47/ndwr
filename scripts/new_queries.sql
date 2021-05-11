@@ -78,11 +78,15 @@ FROM
 CALL `ndwr`.`build_ndwr_drug_alcohol_screening`("build",1,1,1,"true");
 ####################################################################
 replace into ndwr.ndwr_patient_allergies_chronic_illness_build_queue(
-select distinct e.patient_id from amrs.obs o
-join amrs.encounter e on (e.encounter_id = o.encounter_id)
-where o.concept_id in (1120,2085,1122,1124,1125,1126,1129,1123,6011)
-and e.encounter_type in (1) and e.encounter_datetime >= '2021-04-01 00:00:00'
-);
+SELECT 
+    distinct o.person_id
+FROM
+    amrs.obs o
+    join amrs.encounter e on (e.encounter_id = o.encounter_id)
+    where o.concept_id in (1120,2085,1122,1124,1125,1126,1129,1123,6011)
+    AND e.encounter_type in (1,106)
+    and e.encounter_datetime >= '2021-04-01 00:00:00'
+    );
 CALL `ndwr`.`build_NDWR_patient_allergies_chronic_illness`("build",1,1,1,"true");
 ####################################################################
 replace into ndwr_patient_ipt_extract_build_queue (

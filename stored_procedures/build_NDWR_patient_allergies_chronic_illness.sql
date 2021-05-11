@@ -29,16 +29,18 @@ CREATE TABLE IF NOT EXISTS ndwr.ndwr_patient_allergies_chronic_illness (
     `Skin` VARCHAR(200) NULL,
     `Eyes` VARCHAR(200) NULL,
     `ENT` VARCHAR(200) NULL,
-    `Chest` INT NULL,
+    `Chest` VARCHAR(200) NULL,
     `CVS` VARCHAR(200) NULL,
     `Abdomen` VARCHAR(200) NULL,
     `CNS` VARCHAR(200) NULL,
-    `Genitourinary` INT NULL,
+    `Genitourinary` VARCHAR(200) NULL,
     `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY VisitID (VisitID),
     INDEX patient_id (PatientID),
     INDEX patient_pk (PatientPK),
     INDEX aci_site_code (SiteCode),
+    INDEX aci_site_code_visit (SiteCode , VisitID),
+    INDEX aci_site_code_pk (SiteCode , PatientPK),
     INDEX date_created (DateCreated)
 );
                     set @last_date_created := null;
@@ -100,19 +102,7 @@ SELECT @person_ids_count AS 'num patients to build';
 						              DEALLOCATE PREPARE s1;
                                       
                                       
-						SELECT CONCAT('Creating ndwr_patient ccc numbers');
-                          drop  temporary table if exists ndwr_patient_ccc;
-                          CREATE temporary TABLE ndwr_patient_ccc(
-                          select 
-                           q.person_id,
-                           i.identifier as 'ccc_no'
-                           from 
-                           ndwr.ndwr_patient_allergies_chronic_illness_build_queue__0 q
-                           left join amrs.patient_identifier i on (i.patient_id = q.person_id AND i.identifier_type = 28 AND i.voided = 0)
-                           group by q.person_id
-                          );
-                                      
-						  
+						 
                           
 
 SELECT CONCAT('Creating ndwr_patient_allergies...');
@@ -136,11 +126,40 @@ SELECT CONCAT('Creating ndwr_patient_allergies...');
                                         ELSE NULL
                                     END AS 'AllergyCausativeAgent',
                                     CASE
-                                    WHEN o.obs REGEXP "!!1123=" then etl.getValues(o.obs,'1123')
-                                    ELSE NULL
+                                        WHEN o.obs REGEXP '!!1123=639!!' THEN 'RIGHT LOWER LOBE'
+                                        WHEN o.obs REGEXP '!!1123=1115!!'   THEN 'NORMAL'
+                                        WHEN o.obs REGEXP '!!1123=1116!!'  THEN 'ABNORMAL'
+                                        WHEN o.obs REGEXP '!!1123=5115!!'  THEN 'DIMINISHED BREATH SOUNDS'
+                                        WHEN o.obs REGEXP '!!1123=5116!!'   THEN 'BRONCHIAL BREATH SOUNDS'
+                                        WHEN o.obs REGEXP '!!1123=5127!!'  THEN 'CREPITATIONS'
+                                        WHEN o.obs REGEXP '!!1123=5134!!'   THEN 'LEFT LOWER LOBE'
+                                        WHEN o.obs REGEXP '!!1123=5138!!'   THEN 'DULLNESS TO PERCUSSION'
+                                        WHEN o.obs REGEXP '!!1123=5139!!'  THEN 'LEFT'
+                                        WHEN o.obs REGEXP '!!1123=5141!!'   THEN 'RIGHT'
+                                        WHEN o.obs REGEXP '!!1123=5181!!'   THEN 'RHONCHI'
+                                        WHEN o.obs REGEXP '!!1123=5209!!'   THEN 'WHEEZE'
+                                        WHEN o.obs REGEXP '!!1123=5622!!'   THEN 'OTHER'
+                                        WHEN o.obs REGEXP '!!1123=1107!!'  THEN 'NONE'
+                                        WHEN o.obs REGEXP '!!1123=2398!!'   THEN 'PERIHILAR'
+                                        WHEN o.obs REGEXP '!!1123=2399!!'  THEN 'BILATERAL'
+                                        WHEN o.obs REGEXP '!!1123=576!!'   THEN 'DIFFUSE (576)'
+                                        WHEN o.obs REGEXP '!!1123=5119!!'   THEN 'RIGHT UPPER LOBE (5119)'
+                                        WHEN o.obs REGEXP '!!1123=5132!!'   THEN 'LEFT UPPER LOBE'
+                                        ELSE NULL
                                     END AS 'Chest',
                                     CASE
-                                    WHEN o.obs REGEXP "!!1126=" then etl.getValues(o.obs,'1126')
+										WHEN o.obs REGEXP "!!1126=1115!!" then 'NORMAL'
+										WHEN o.obs REGEXP "!!1126=1116!!" then 'ABNORMAL'
+										WHEN o.obs REGEXP "!!1126=1118!!" then 'NOT DONE'
+										WHEN o.obs REGEXP "!!1126=2186!!" then 'SIGN OF SEXUAL ABUSE'
+										WHEN o.obs REGEXP "!!1126=864!!" then 'GENITAL SORES'
+										WHEN o.obs REGEXP "!!1126=6334!!" then 'FEMALE GENITAL MUTILATION'
+										WHEN o.obs REGEXP "!!1126=1447!!" then 'GENITAL WARTS'
+										WHEN o.obs REGEXP "!!1126=5993!!" then 'VAGINAL DISCHARGE'
+										WHEN o.obs REGEXP "!!1126=8998!!" then 'RUPTURE OF MEMBRANES'
+										WHEN o.obs REGEXP "!!1126=1489!!" then 'VAGINAL BLEEDING'
+										WHEN o.obs REGEXP "!!1126=8417!!" then 'POLYURIA'
+										WHEN o.obs REGEXP "!!1126=6261!!" then 'SIGNS OF LABOR'
                                     ELSE NULL
                                     END AS 'Genitourinary'
                                 FROM
@@ -148,7 +167,7 @@ SELECT CONCAT('Creating ndwr_patient_allergies...');
                                         JOIN
                                     etl.flat_obs o ON (q.person_id = o.person_id)
                                 WHERE
-                                    o.encounter_type IN (1)
+                                    o.encounter_type IN (1,106)
                           );
 
                           
@@ -246,10 +265,10 @@ SELECT CONCAT('Creating chronic illness table ....');
                              SELECT
                               a.person_id AS 'PatientPK',
                               mfl.mfl_code AS 'SiteCode',
-                              i.ccc_no AS 'PatientID',
+                              t.PatientID as 'PatientID',
                                mfl.mfl_code as 'FacilityID',
-                              'AMRS' AS 'Emr',
-                              'Ampath Plus' AS 'Project',
+                               t.Emr as 'Emr',
+							   t.Project as 'Project',
                                mfl.Facility AS 'FacilityName',
                                a.encounter_id as 'VisitID',
                                a.encounter_datetime as 'VisitDate',
@@ -274,7 +293,7 @@ SELECT CONCAT('Creating chronic illness table ....');
                              left join ndwr_patient_allergies_physical_findings f on (f.person_id = a.person_id AND f.encounter_id = a.encounter_id)
                              left join chronic_illness c on (c.person_id = a.person_id AND c.encounter_id = a.encounter_id)
                              join ndwr.mfl_codes mfl ON (mfl.location_id = a.location_id)
-                             join ndwr_patient_ccc i on (i.person_id = a.person_id)
+                             join ndwr.ndwr_all_patients_extract t on (t.PatientPK = a.person_id)
                          );
 
                           

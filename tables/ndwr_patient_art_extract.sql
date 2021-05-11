@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
   `PatientPK` INT NOT NULL,
-  `PatientID` INT NOT NULL,
-  `FacilityID` INT NOT NULL,
   `SiteCode` INT NULL,
+  `PatientID` VARCHAR(30) NULL,
+  `FacilityID` INT NOT NULL,
   `Emr` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
   `FacilityName` VARCHAR(50) NULL,

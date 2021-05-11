@@ -5,14 +5,14 @@ BEGIN
 					set @primary_table := "ndwr_patient_art_extract";
                     set @total_rows_written = 0;
 					set @start = now();
-					set @table_version = "ndwr_patient_art_extract_v1.0";
+					set @table_version = "ndwr_patient_art_extract_v1.1";
                     set @query_type= query_type;
           
           
 CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
   `PatientPK` INT NOT NULL,
   `SiteCode` INT NULL,
-  `PatientID` INT NOT NULL,
+  `PatientID` VARCHAR(30) NULL,
   `FacilityID` INT NOT NULL,
   `Emr` VARCHAR(50) NULL,
   `Project` VARCHAR(50) NULL,
@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
    INDEX patient_id (PatientID),
    INDEX facility_id (FacilityID),
    INDEX site_code (SiteCode),
+   INDEX site_code_patient_pk (SiteCode,PatientPK),
    INDEX patient_pk (PatientPK),
    INDEX art_start_date (StartARTDate),
    INDEX date_created (DateCreated)
@@ -128,14 +129,15 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
 						  
                           drop temporary table if exists ndwr_patient_art_extract_interim;
                           
+                           SELECT CONCAT('Creating interim table .. ');
                          
-                          SET @dyn_sql=CONCAT('create temporary table ndwr_patient_art_extract_interim (SELECT  distinct	
+                          create temporary table ndwr_patient_art_extract_interim (SELECT  distinct	
                                t1.PatientPK,
-                               t1.SiteCode,
+							   t1.SiteCode,
                                t1.PatientID,
                                t1.FacilityID,
                                t1.Emr,
-			                         t1.Project,
+							   t1.Project,
                                t1.FacilityName,
                                t1.DOB as DOB,
 			                         DATEDIFF(t1.RegistrationDate,DOB)/365.25 as AgeEnrollment,
@@ -152,10 +154,10 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
                                 when RegistrationDate <= if(DATE(t1.arv_first_regimen_start_date) = "1900-01-01","1997-01-01",t1.arv_first_regimen_start_date) then RegistrationDate
                                 when RegistrationDate > if(DATE(t1.arv_first_regimen_start_date) = "1900-01-01","1997-01-01",t1.arv_first_regimen_start_date) then DATE_ADD(RegistrationDate, INTERVAL 30 DAY)
                               end as PreviousARTStartDate,
-                              etl.get_arv_names(t1.arv_first_regimen) as PreviousARTRegimen,
+                              t1.arv_first_regimen as PreviousARTRegimen,
                               t1.arv_start_date as StartARTAtThisFacility,
-			                  t1.arv_first_regimen as StartRegimen,
-							  t1.cur_arv_line AS StartRegimenLine,
+			                        t1.arv_first_regimen as StartRegimen,
+							 t1.cur_arv_line AS StartRegimenLine,
                               CASE
                                 WHEN t1.cur_arv_line = 1 AND  (DATEDIFF(t1.lastVisit, t1.DOB) / 365.25) >= 25 THEN "Adult FirstLine"
                                 WHEN t1.cur_arv_line = 1 AND  (DATEDIFF(t1.lastVisit, t1.DOB) / 365.25) < 25 THEN "Child FirstLine"
@@ -167,7 +169,7 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
                               END AS StartRegimenLineCategory,
                               t1.lastVisit as LastARTDate,
 							  t1.cur_arv_meds as LastRegimen,
-							  etl.get_arv_names(t1.cur_arv_line_strict) as LastRegimenLine,
+							  t1.cur_arv_line as LastRegimenLine,
                               DATEDIFF(t1.rtc_date,t1.lastVisit) as Duration,
 			                        t1.rtc_date as ExpectedReturn,
                               "Government" as Provider,
@@ -178,13 +180,11 @@ CREATE TABLE IF NOT EXISTS ndwr_patient_art_extract (
                               FROM ndwr.ndwr_all_patients_extract t1
                               join ndwr_patient_art_extract_build_queue__0 b on (b.person_id = t1.PatientPK)
                               
-                              );');
+                              );
                           
-						 SELECT CONCAT('Creating interim table .. ');
+						
 
-                          PREPARE s1 from @dyn_sql; 
-                          EXECUTE s1; 
-                          DEALLOCATE PREPARE s1;
+                         
 
 SELECT 
     COUNT(*)

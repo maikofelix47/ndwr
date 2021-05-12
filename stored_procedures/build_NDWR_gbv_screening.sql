@@ -9,27 +9,29 @@ BEGIN
                     set @query_type= query_type;
           
           
-CREATE TABLE IF NOT EXISTS ndwr_gbv_screening (
-  `PatientPK` INT NOT NULL,
-  `SiteCode` INT NOT NULL,
-  `PatientID` VARCHAR(30) NULL,
-  `Emr` VARCHAR(50) NULL,
-  `Project` VARCHAR(50) NULL,
-  `FacilityName` VARCHAR(100) NULL,
-  `PartnerPersonID`  INT NULL,
-  `VisitID` INT NULL,
-  `VisitDate` DATETIME NOT NULL,
-  `IPV` BOOLEAN NULL,
-  `PhysicalIPV` VARCHAR(10) NULL,
-  `EmotionalIPV` VARCHAR(10) NULL,
-  `SexualIPV` VARCHAR(10) NULL,
-  `IPVRelationship` VARCHAR(10) NULL,
-  `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-   INDEX patient_gbv_pk (PatientPK),
-   INDEX patient_gbv_sc (SiteCode),
-   INDEX patient_gbv_visit_id (VisitID),
-   INDEX patient_pgbv_k_site_list (PatientPK,SiteCode),
-   INDEX date_created (DateCreated)
+CREATE TABLE IF NOT EXISTS ndwr.ndwr_gbv_screening (
+    `PatientPK` INT NOT NULL,
+    `SiteCode` INT NOT NULL,
+    `PatientID` VARCHAR(30) NULL,
+    `Emr` VARCHAR(50) NULL,
+    `Project` VARCHAR(50) NULL,
+    `FacilityName` VARCHAR(100) NULL,
+    `PartnerPersonID` INT NULL,
+    `VisitID` INT NULL,
+    `VisitDate` DATETIME NOT NULL,
+    `IPV` BOOLEAN NULL,
+    `PhysicalIPV` VARCHAR(10) NULL,
+    `EmotionalIPV` VARCHAR(10) NULL,
+    `SexualIPV` VARCHAR(10) NULL,
+    `IPVRelationship` VARCHAR(10) NULL,
+    `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX patient_gbv_pk (PatientPK),
+    INDEX patient_gbv_sc (SiteCode),
+    INDEX patient_gbv_visit_id (VisitID),
+    INDEX patient_pgbv_k_site_list (PatientPK , SiteCode),
+	INDEX patient_pgbv_k_visit (PatientPK,VisitID),
+    INDEX patient_pgbv_k_site_visit (SiteCode,VisitID),
+    INDEX date_created (DateCreated)
 );
                     set @last_date_created = (select max(DateCreated) from ndwr.ndwr_gbv_screening);
 
@@ -61,10 +63,12 @@ CREATE TABLE IF NOT EXISTS ndwr_gbv_screening (
                             EXECUTE s1; 
                             DEALLOCATE PREPARE s1;
 
-                            SELECT @person_ids_count AS 'num patients to build';
+SELECT @person_ids_count AS 'num patients to build';
                    
-                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);'); 
-				                    SELECT CONCAT('Deleting patient records in interim ', @primary_table);
+                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientPK);');
+				SELECT 
+    CONCAT('Deleting patient records in interim ',
+            @primary_table);
 				                    PREPARE s1 from @dyn_sql; 
 				                    EXECUTE s1; 
 				                    DEALLOCATE PREPARE s1;  
@@ -74,17 +78,17 @@ CREATE TABLE IF NOT EXISTS ndwr_gbv_screening (
                             select 'SYNCING..........................................';
                             set @write_table = concat("ndwr_gbv_screening_temp_",queue_number);
                             set @queue_table = "ndwr_gbv_screening_sync_queue";
-                            CREATE TABLE IF NOT EXISTS ndwr_gbv_screening_sync_queue (
-                                person_id INT PRIMARY KEY
-                            );                            
+CREATE TABLE IF NOT EXISTS ndwr_gbv_screening_sync_queue (
+    person_id INT PRIMARY KEY
+);                            
                             
                             set @last_update = null;
-                            SELECT 
-                                MAX(date_updated)
-                            INTO @last_update FROM
-                                ndwr.flat_log
-                            WHERE
-                                table_name = @table_version;
+SELECT 
+    MAX(date_updated)
+INTO @last_update FROM
+    ndwr.flat_log
+WHERE
+    table_name = @table_version;
 
                             replace into ndwr_gbv_screening_sync_queue
                              (select distinct person_id from etl.flat_hiv_summary_v15b where date_created >= @last_update);
@@ -144,8 +148,8 @@ CREATE TABLE IF NOT EXISTS ndwr_gbv_screening (
                               END AS 'IPVRelationship',
                               NULL AS 'DateCreated'
                               FROM
-                              ndwr.ndwr_gbv_screening_build_queue__0 q
-                              join ndwr.ndwr_patient_contact_listing c on (c.person_id = q.person_id)
+                               ndwr.ndwr_gbv_screening_build_queue__0 q
+                              join ndwr.ndwr_patient_contact_listing c on (c.PatientPK = q.person_id)
 
 
                           );
@@ -153,7 +157,7 @@ CREATE TABLE IF NOT EXISTS ndwr_gbv_screening (
                          
                           
                           
-						 SELECT CONCAT('Creating interim table');
+						SELECT CONCAT('Creating interim table');
 
                          
 

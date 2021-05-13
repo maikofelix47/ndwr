@@ -1,12 +1,11 @@
-use ndwr;
 DELIMITER $$
-CREATE  PROCEDURE `build_ndwr_otz_patient_visits_extract`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
+CREATE  PROCEDURE `build_ndwr_otz_patient_visits`(IN query_type varchar(50) ,IN queue_number int, IN queue_size int, IN cycle_size int, IN log BOOLEAN)
 BEGIN
 
-					set @primary_table := "ndwr_otz_patient_visits;";
+					set @primary_table := "ndwr_otz_patient_visits";
                     set @total_rows_written = 0;
 					set @start = now();
-					set @table_version = "ndwr_otz_patient_visits_extract_v1.0";
+					set @table_version = "ndwr_otz_patient_visits_v1.0";
                     set @query_type= query_type;
           
           
@@ -36,13 +35,13 @@ CREATE TABLE IF NOT EXISTS ndwr.ndwr_otz_patient_visits (
     INDEX all_otz_patient_extract_visit_date (VisitDate),
     INDEX date_created (DateCreated)
 );
-                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_otz_patient_visits_extract);
+                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_otz_patient_visits);
 
                     if(@query_type="build") then
 
 							              select 'BUILDING..........................................';
-                            set @write_table = concat("ndwr_otz_patient_visits_extract_temp_",queue_number);
-                            set @queue_table = concat("ndwr_otz_patient_visits_extract_build_queue_",queue_number);                    												
+                            set @write_table = concat("ndwr_otz_patient_visits_temp_",queue_number);
+                            set @queue_table = concat("ndwr_otz_patient_visits_build_queue_",queue_number);                    												
 
 										        SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
 							              PREPARE s1 from @dyn_sql; 
@@ -50,12 +49,12 @@ CREATE TABLE IF NOT EXISTS ndwr.ndwr_otz_patient_visits (
 							              DEALLOCATE PREPARE s1;  
 
 
-							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_otz_patient_visits_extract_build_queue limit ', queue_size, ');'); 
+							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_otz_patient_visits_build_queue limit ', queue_size, ');'); 
 							              PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
 
-							              SET @dyn_sql=CONCAT('delete t1 from ndwr_otz_patient_visits_extract_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
+							              SET @dyn_sql=CONCAT('delete t1 from ndwr_otz_patient_visits_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
                             PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
@@ -68,7 +67,7 @@ CREATE TABLE IF NOT EXISTS ndwr.ndwr_otz_patient_visits (
 
 SELECT @person_ids_count AS 'num patients to build';
                    
-                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientID);');
+                            SET @dyn_sql=CONCAT('delete t1 from ',@primary_table,' t1 join ', @queue_table ,' t2 on (t2.person_id = t1.PatientPK);');
 				SELECT 
     CONCAT('Deleting patient records in interim ',
             @primary_table);
@@ -79,9 +78,9 @@ SELECT @person_ids_count AS 'num patients to build';
 				              end if;
                       if (@query_type="sync") then
                             select 'SYNCING..........................................';
-                            set @write_table = concat("ndwr_otz_patient_visits_extract_temp_",queue_number);
-                            set @queue_table = "ndwr_otz_patient_visits_extract_sync_queue";
-CREATE TABLE IF NOT EXISTS ndwr_otz_patient_visits_extract_sync_queue (
+                            set @write_table = concat("ndwr_otz_patient_visits_temp_",queue_number);
+                            set @queue_table = "ndwr_otz_patient_visits_sync_queue";
+CREATE TABLE IF NOT EXISTS ndwr_otz_patient_visits_sync_queue (
     person_id INT PRIMARY KEY
 );                            
                             
@@ -93,7 +92,7 @@ INTO @last_update FROM
 WHERE
     table_name = @table_version;
 
-                            replace into ndwr_otz_patient_visits_extract_sync_queue
+                            replace into ndwr_otz_patient_visits_sync_queue
                              (select distinct person_id from etl.flat_hiv_summary_v15b where date_created >= @last_update);
 
                       end if;
@@ -104,37 +103,37 @@ WHERE
                     while @person_ids_count > 0 do
 
                         	set @loop_start_time = now();
-							drop temporary table if exists ndwr_otz_patient_visits_extract_build_queue__0;
+							drop temporary table if exists ndwr_otz_patient_visits_build_queue__0;
 
-                          SET @dyn_sql=CONCAT('create temporary table if not exists ndwr_otz_patient_visits_extract_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit ',cycle_size,');'); 
+                          SET @dyn_sql=CONCAT('create temporary table if not exists ndwr_otz_patient_visits_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit ',cycle_size,');'); 
 						              PREPARE s1 from @dyn_sql; 
 						              EXECUTE s1; 
 						              DEALLOCATE PREPARE s1;
                                       
                          
                           
-                          drop temporary table if exists ndwr_otz_patient_visits_extract_interim;
+                          drop temporary table if exists ndwr_otz_patient_visits_interim;
                           
                          
-                          -- create temporary table ndwr_otz_patient_visits_extract_interim;
+                          -- create temporary table ndwr_otz_patient_visits_interim;
                           
 						
 
 SELECT 
     COUNT(*)
 INTO @new_encounter_rows FROM
-    ndwr_otz_patient_visits_extract_interim;
+    ndwr_otz_patient_visits_interim;
 SELECT @new_encounter_rows;                    
                           set @total_rows_written = @total_rows_written + @new_encounter_rows;
 SELECT @total_rows_written;
 
-                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select * from ndwr_otz_patient_visits_extract_interim)');
+                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select * from ndwr_otz_patient_visits_interim)');
 
                           PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
                           DEALLOCATE PREPARE s1;
 
-                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_otz_patient_visits_extract_build_queue__0 t2 using (person_id);'); 
+                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_otz_patient_visits_build_queue__0 t2 using (person_id);'); 
 					                PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
 					                DEALLOCATE PREPARE s1;  

@@ -1,12 +1,15 @@
-use ndwr;
-select 
-PatientPK,
-PatientID,
-FacilityID,
-SiteCode,
-Emr,
-Project,
-FacilityName,
-ExitDescription,
-ExitDate,
-ExitReason from ndwr.ndwr_patient_status_extract;
+SELECT 
+		    PatientPK,
+            SiteCode,
+		    PatientID,
+		    FacilityID,
+		    Emr,
+		    Project,
+		    FacilityName,
+		    ExitDescription,
+		    ExitDate,
+		    ExitReason,
+        TOVerified,
+        TOVerifiedDate
+		FROM
+		    ndwr.ndwr_all_patient_status_extract;

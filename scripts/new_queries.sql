@@ -107,6 +107,6 @@ replace into ndwr.ndwr_ovc_patient_visits_extract_build_queue(
 );
 ####################################################################
 
-CALL `ndwr`.`build_ndwr_ovc_patient_visits`("build",1,1,1,"true");
+CALL `ndwr`.`build_ndwr_otz_patient_visits`("build",1,1,1,"true");
 
 

@@ -105,3 +105,8 @@ replace into ndwr.ndwr_ovc_patient_visits_extract_build_queue(
                               AND pp.date_created >= '2021-04-01 00:00:00'
                               group by pp.patient_id
 );
+####################################################################
+
+CALL `ndwr`.`build_ndwr_ovc_patient_visits`("build",1,1,1,"true");
+
+

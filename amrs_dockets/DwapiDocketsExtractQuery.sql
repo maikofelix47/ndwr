@@ -27,8 +27,8 @@ SELECT
     PatientPK,
     SiteCode,
     CASE
-      WHEN PatientID IS NULL THEN PatientPK
-      ELSE PatientID
+        WHEN PatientID IS NULL THEN PatientPK
+        ELSE PatientID
     END AS 'PatientID',
     FacilityID,
     Emr,
@@ -45,9 +45,9 @@ SELECT
     PulseRate,
     RespiratoryRate,
     OxygenSaturation,
-    MUAC,
+    MUAC as 'Muac',
     BP,
-    NutritionStatus,
+    NutritionStatus as 'NutritionalStatus',
     'GeneralPopulation' AS 'PopulationType',
     NULL AS KeyPopulationType,
     WHOStage,
@@ -55,8 +55,10 @@ SELECT
     EverHadMenses,
     LMP,
     Pregnant,
-    Breastfeeding EDD,
-    Menopausal FamilyPlanningMethod,
+    Breastfeeding,
+    EDD,
+    Menopausal, 
+    FamilyPlanningMethod,
     NoFPReason,
     OI,
     OIDate,
@@ -93,8 +95,7 @@ FROM
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
 WHERE
-    DATE(VisitDate) >= '1997-01-01'
-    group by VisitID;
+    DATE(VisitDate) >= '1997-01-01';
 		   
 ==========================================
 
@@ -112,12 +113,14 @@ SELECT
     ExitDescription,
     ExitDate,
     ExitReason,
+    NULL AS 'ReEnrollmentDate',
     TOVerified,
     TOVerifiedDate
 FROM
     ndwr.ndwr_all_patient_status_extract
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
+group by PatientPK;
 			
 ===============================================
 
@@ -274,12 +277,12 @@ WHERE
 ===========================================
 
 SELECT 
-    PKV,
+    PKV as 'Pkv',
     PatientPK,
     SiteCode,
     CASE
-    WHEN PatientID IS NULL THEN PatientPK
-    ELSE PatientID
+        WHEN PatientID IS NULL THEN PatientPK
+        ELSE PatientID
     END AS 'PatientID',
     FacilityID,
     Emr,
@@ -301,8 +304,13 @@ SELECT
     MaritalStatus,
     EducationLevel,
     CASE
-       WHEN DateConfirmedHIVPositive IS NOT NULL THEN IF(DateConfirmedHIVPositive = '1900-01-01','1997-01-01', DateConfirmedHIVPositive)
-       ELSE DateConfirmedHIVPositive
+        WHEN
+            DateConfirmedHIVPositive IS NOT NULL
+        THEN
+            IF(DateConfirmedHIVPositive = '1900-01-01',
+                '1997-01-01',
+                DateConfirmedHIVPositive)
+        ELSE DateConfirmedHIVPositive
     END AS `DateConfirmedHIVPositive`,
     PreviousARTExposure,
     PreviousARTStartDate,
@@ -326,7 +334,7 @@ FROM
     ndwr.ndwr_all_patients_extract
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
-    group by PatientPK;
+GROUP BY PatientPK;
 
 
 ===========================================
@@ -352,7 +360,8 @@ SELECT
     ndwr.ndwr_otz_patient_visits
     JOIN
 	    ndwr.ndwr_selected_site USING (SiteCode)
-        group by VisitID;
+        group by VisitID
+        LIMIT 0;
 
   ===========================================
 
@@ -458,7 +467,8 @@ FROM
     PatientPK,
     SiteCode,
     PatientID,
-    FacilityID,
+    FacilityId,
+    FacilityName,
     Emr,
     Project,
     VisitID,
@@ -469,63 +479,63 @@ FROM
         WHEN PHQ9_1 = 2 THEN 'More than half'
         WHEN PHQ9_1 = 3 THEN 'Nearly everyday'
         ELSE NULL
-    END AS 'PHQ9-1',
+    END AS 'PHQ9_1',
     CASE
         WHEN PHQ9_2 = 0 THEN 'Not at all'
         WHEN PHQ9_2 = 1 THEN 'Several days'
         WHEN PHQ9_2 = 2 THEN 'More than half'
         WHEN PHQ9_3 = 3 THEN 'Nearly everyday'
         ELSE NULL
-    END AS 'PHQ9-2',
+    END AS 'PHQ9_2',
     CASE
         WHEN PHQ9_3 = 0 THEN 'Not at all'
         WHEN PHQ9_3 = 1 THEN 'Several days'
         WHEN PHQ9_3 = 2 THEN 'More than half'
         WHEN PHQ9_3 = 3 THEN 'Nearly everyday'
         ELSE NULL
-    END AS 'PHQ9-3',
+    END AS 'PHQ9_3',
     CASE
         WHEN PHQ9_4 = 0 THEN 'Not at all'
         WHEN PHQ9_4 = 1 THEN 'Several days'
         WHEN PHQ9_4 = 2 THEN 'More than half'
         WHEN PHQ9_4 = 3 THEN 'Nearly everyday'
         ELSE NULL
-    END AS 'PHQ9-4',
+    END AS 'PHQ9_4',
     CASE
         WHEN PHQ9_5 = 0 THEN 'Not at all'
         WHEN PHQ9_5 = 1 THEN 'Several days'
         WHEN PHQ9_5 = 2 THEN 'More than half'
         WHEN PHQ9_5 = 3 THEN 'Nearly everyday'
         ELSE NULL
-    END AS 'PHQ9-5',
+    END AS 'PHQ9_5',
     CASE
         WHEN PHQ9_6 = 0 THEN 'Not at all'
         WHEN PHQ9_6 = 1 THEN 'Several days'
         WHEN PHQ9_6 = 2 THEN 'More than half'
         WHEN PHQ9_6 = 3 THEN 'Nearly everyday'
         ELSE NULL
-    END AS 'PHQ9-6',
+    END AS 'PHQ9_6',
     CASE
         WHEN PHQ9_7 = 0 THEN 'Not at all'
         WHEN PHQ9_7 = 1 THEN 'Several days'
         WHEN PHQ9_7 = 2 THEN 'More than half'
         WHEN PHQ9_7 = 3 THEN 'Nearly everyday'
         ELSE NULL
-    END AS 'PHQ9-7',
+    END AS 'PHQ9_7',
     CASE
         WHEN PHQ9_8 = 0 THEN 'Not at all'
         WHEN PHQ9_8 = 1 THEN 'Several days'
         WHEN PHQ9_8 = 2 THEN 'More than half'
         WHEN PHQ9_8 = 3 THEN 'Nearly everyday'
         ELSE NULL
-    END AS 'PHQ9-8',
+    END AS 'PHQ9_8',
     CASE
         WHEN PHQ9_9 = 0 THEN 'Not at all'
         WHEN PHQ9_9 = 1 THEN 'Several days'
         WHEN PHQ9_9 = 2 THEN 'More than half'
         WHEN PHQ9_9 = 3 THEN 'Nearly everyday'
         ELSE NULL
-    END AS 'PHQ9-9',
+    END AS 'PHQ9_9',
     CASE
         WHEN PHQ9Score >= 0 AND PHQ9Score <= 4 THEN 'Depression unlikely'
         WHEN PHQ9Score >= 5 AND PHQ9Score <= 9 THEN 'Mild depression'
@@ -533,8 +543,12 @@ FROM
         WHEN PHQ9Score >= 15 AND PHQ9Score <= 19 THEN 'Moderate severe depression'
         WHEN PHQ9Score >= 20 AND PHQ9Score <= 27 THEN 'Severe depression'
         ELSE NULL
-    END AS 'PHQ9Score',
-    PHQ9Rating AS 'PHQ9 Rating'
+    END AS 'DepressionAssesmentScore',
+    PHQ9Rating AS 'PHQ_9_rating',
+    DateCreated as 'Date_Created',
+    DateCreated as 'Date_Last_Modified',
+    NULL AS 'StatusDate',
+    NULL AS 'Status'
 FROM
     ndwr.ndwr_patient_depression_screening
         JOIN
@@ -563,7 +577,8 @@ FROM
     ndwr.ndwr_ovc_patient_visits
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
-    group by VisitID;
+    group by VisitID
+    LIMIT 0;
 
   =======================================================
 
@@ -642,7 +657,8 @@ FROM
     ndwr.ndwr_patient_ipt_extract
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
-    group by VisitID;
+    group by VisitID
+    LIMIT 0;
 
 ===============================================
 
@@ -683,19 +699,20 @@ FROM
     ndwr.ndwr_gbv_screening
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
-    group by VisitID;
+    group by VisitID
+    LIMIT 0;
     
 
 =================================================
 
 SELECT 
-    PatientPK as 'patientPK',
+    PatientPK as 'PatientPK',
     SiteCode as 'SiteCode',
-    PatientID as 'patientID',
-    SiteCode as 'facilityId',
-    FacilityName as 'facilityName',
-    VisitID as 'visitID',
-    VisitDate as 'visitDate',
+    PatientID as 'PatientID',
+    SiteCode as 'FacilityId',
+    FacilityName as 'FacilityName',
+    VisitID as 'VisitID',
+    VisitDate as 'VisitDate',
     CASE
         WHEN DrinkAlcohol = 1090 THEN 'Never'
         WHEN DrinkAlcohol = 1091 THEN 'Monthly or less'
@@ -703,26 +720,32 @@ SELECT
         WHEN DrinkAlcohol = 1093 THEN '2 to 3 times a week'
         WHEN DrinkAlcohol IN (1094 , 1095) THEN '4 or More Times a Week'
         ELSE NULL
-    END AS 'drinkingAlcohol',
-    NULL AS 'smoking',
-    NULL AS 'drugUse'
+    END AS 'DrinkingAlcohol',
+    NULL AS 'Smoking',
+    NULL AS 'DrugUse',
+    NULL AS 'Status',
+    NULL AS 'StatusDate'
 FROM
     ndwr.ndwr_drug_alcohol_screening
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
-    group by VisitID;
+    group by VisitID
+    LIMIT 0;
 
 =============================================================
 
-use ndwr;
 SELECT 
     PatientPK,
     SiteCode,
+    SiteCode as 'FacilityId',
     PatientID,
     FacilityName,
     Emr,
     Project,
-    PartnerPersonID,
+    case
+      WHEN PartnerPersonID IS NULL THEN ''
+      ELSE PartnerPersonID
+    end as 'PartnerPersonID',
     ContactAge,
     CASE
         WHEN ContactSex = 1 THEN 'Male'
@@ -786,52 +809,61 @@ SELECT
         WHEN PnsApproach = 9025 THEN 'Contract referral'
         WHEN PnsApproach = 10648 THEN 'Passive referral'
         ELSE NULL
-    END AS 'PnsApproach'
+    END AS 'PnsApproach',
+    DateCreated as 'Date_Created',
+    DateCreated as 'Date_Last_Modified',
+    NULL AS 'Status'
 FROM
     ndwr.ndwr_patient_contact_listing c
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
-    group by VisitID;
+    group by VisitID
+    LIMIT 0;
 
     ======================================================
 
- 	SELECT 
-    PatientPK as 'patientPK',
-    SiteCode as 'siteCode',
+	SELECT 
+    PatientPK as 'PatientPK',
+    SiteCode as 'SiteCode',
     CASE
         WHEN PatientID IS NULL THEN PatientPK
         ELSE PatientID
-    END AS 'patientID',
-    FacilityID,
+    END AS 'PatientID',
+    FacilityID AS 'FacilityId',
     Emr,
     Project,
-    FacilityName as 'facilityName',
-    VisitID as 'visitID',
-    VisitDate as 'visitDate',
-    ChronicIllness as 'chronicIllness',
-    ChronicOnsetDate as 'chronicOnsetDate',
+    FacilityName as 'FacilityName',
+    VisitID as 'VisitID',
+    VisitDate as 'VisitDate',
+    ChronicIllness as 'ChronicIllness',
+    ChronicOnsetDate as 'ChronicOnsetDate',
     CASE
         WHEN knownAllergies = 1 THEN 'YES'
         WHEN knownAllergies = 0 THEN 'NO'
         ELSE NULL
     END AS 'knownAllergies',
-    AllergyCausativeAgent as 'allergyCausativeAgent',
-    AllergicReaction as 'allergicReaction',
-    AllergySeverity as 'allergySeverity',
-    AllergyOnsetDate as 'allergyOnsetDate',
-    Skin as 'skin',
-    Eyes as 'eyes',
-    ENT as 'ent',
-    Chest as 'chest',
-    CVS as 'cvs',
-    Abdomen as 'abdomen',
-    CNS as 'cns',
-    Genitourinary as 'genitourinary'
+    AllergyCausativeAgent as 'AllergyCausativeAgent',
+    AllergicReaction as 'AllergicReaction',
+    AllergySeverity as 'AllergySeverity',
+    AllergyOnsetDate as 'AllergyOnsetDate',
+    Skin as 'Skin',
+    NULL AS 'Status',
+    NULL AS 'StatusDate',
+    Eyes as 'Eyes',
+    ENT as 'ENT',
+    Chest as 'Chest',
+    CVS as 'CVS',
+    Abdomen as 'Abdomen',
+    CNS as 'CNS',
+    Genitourinary as 'Genitourinary',
+    DateCreated AS 'Date_Created',
+    DateCreated as 'Date_Last_Modified'
 FROM
     ndwr.ndwr_patient_allergies_chronic_illness
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
-    group by VisitID;
+    group by VisitID
+    LIMIT 0;
 
   =====================================================
 

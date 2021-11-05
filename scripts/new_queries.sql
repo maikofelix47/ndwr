@@ -15,18 +15,18 @@ select distinct PatientPK from ndwr.ndwr_all_patients_extract
 CALL `ndwr`.`build_NDWR_patient_art_extract`("build",1,1,1,true);
 ##################################
 replace into ndwr.ndwr_all_patient_status_extract_build_queue (
-select distinct PatientPK from ndwr.ndwr_all_patients_extract where StatusAtCCC in('dead','ltfu','transfer_out') limit 5
+select distinct PatientPK from ndwr.ndwr_all_patients_extract where StatusAtCCC in('dead','ltfu','transfer_out')
 );
 CALL `ndwr`.`build_NDWR_all_patient_status_extract`("build",1,1,1,true);
 ###################################
 replace into ndwr.ndwr_pharmacy_build_queue (
-select distinct person_id from etl.flat_hiv_summary_v15b where cur_arv_meds is not null and encounter_datetime >= '2021-03-01 00:00:00'
+select distinct person_id from etl.flat_hiv_summary_v15b where cur_arv_meds is not null and encounter_datetime >= '2021-06-01 00:00:00'
 );
 CALL `ndwr`.`build_NDWR_pharmacy`("build",1,1,1,true);
 ##################################
 replace into ndwr.ndwr_patient_labs_extract_build_queue(
 select distinct person_id from amrs.obs where concept_id in (856,730,5497)
-    and voided = 0 and date_created >= '2021-01-01'
+    and voided = 0 and date_created >= '2021-06-01'
 );
 CALL `ndwr`.`build_NDWR_ndwr_patient_labs_extract`("build",1,1,1,true);
 ###################################
@@ -50,8 +50,8 @@ o.person_id from amrs.obs o where
 CALL `ndwr`.`build_ndwr_patient_depression_screening`("build",1,10,1,"true");
 #############################################################
 replace into ndwr.ndwr_patient_contact_listing_build_queue(
-        select distinct person_id from etl.flat_obs where encounter_type in (243)
-        and encounter_datetime >= '2021-04-01'
+        select distinct patient_id from amrs.encounter where encounter_type in (243)
+        and date_created >= '2021-05-01 00:00:00'
 );
 CALL `ndwr`.`build_ndwr_patient_contact_listing`("build",1,1,1,"true");
 ####################################################################

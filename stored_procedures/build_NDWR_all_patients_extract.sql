@@ -199,9 +199,15 @@ CREATE temporary TABLE ndwr_all_patients_interim (
     SELECT
     pm.Pkv as 'PKV',
     t1.person_id AS 'PatientPK',
-    mfl.mfl_code AS 'SiteCode',
+    case
+     when t1.visit_type in (23, 24, 119, 124, 129,43,80,118,120,123) THEN mfl2.mfl_code
+     else mfl.mfl_code
+    end as 'SiteCode',
     REPLACE(pm.PatientID, "-", "") AS 'PatientID',
-    mfl.mfl_code AS 'FacilityID',
+    case
+     when t1.visit_type in (23, 24, 119, 124, 129,43,80,118,120,123) THEN mfl2.mfl_code
+     else mfl.mfl_code
+    end as 'FacilityID',
     'AMRS' AS Emr,
     'Ampath Plus' AS 'Project',
     mfl.Facility AS FacilityName,
@@ -331,8 +337,11 @@ FROM
       ndwr_patient_pkv_occcupation_mapping pm on (t1.person_id = pm.person_id)
         JOIN
     ndwr.mfl_codes mfl ON (mfl.location_id = t1.location_id)
+       left join ndwr.mfl_codes mfl2 on (mfl2.location_id = t1.last_non_transit_location_id)
         JOIN
     amrs.location l ON (l.location_id = t1.location_id)
+     JOIN
+    amrs.location l2 ON (l2.location_id = t1.last_non_transit_location_id)
     
 WHERE
     t1.is_clinical_encounter = 1

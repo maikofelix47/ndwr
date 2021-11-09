@@ -113,7 +113,10 @@ SELECT
     ExitDescription,
     ExitDate,
     ExitReason,
+    NULL AS ReasonForDeath,
+    NULL AS SpecificDeathReason,
     NULL AS 'ReEnrollmentDate',
+    NULL AS DeathDate,
     TOVerified,
     TOVerifiedDate
 FROM
@@ -195,47 +198,56 @@ FROM
 ==================================================
 
 SELECT 
-    PatientPK,
+    a.PatientPK,
     CASE
-      WHEN PatientID IS NULL THEN PatientPK
-      ELSE PatientID
+      WHEN a.PatientID IS NULL THEN a.PatientPK
+      ELSE a.PatientID
     END AS 'PatientID',
-    FacilityID,
-    SiteCode,
-    Emr,
-    Project,
-    FacilityName,
-    DOB,
-    AgeEnrollment,
-    AgeARTStart,
-    AgeLastVisit,
-    RegistrationDate,
-    PatientSource,
-    Gender,
-    StartARTDate,
-    PreviousARTStartDate,
-    PreviousARTRegimen,
-    StartARTAtThisFacility,
-    StartRegimen,
-    StartRegimenLineCategory AS `StartRegimenLine`,
-    LastARTDate,
-    LastRegimen,
-    IF(LastRegimenLine IS NULL,
+    a.FacilityID,
+    a.SiteCode,
+    a.Emr,
+    a.Project,
+    a.FacilityName,
+    a.DOB,
+    a.AgeEnrollment,
+    a.AgeARTStart,
+    a.AgeLastVisit,
+    a.RegistrationDate,
+    a.PatientSource,
+    a.Gender,
+    a.StartARTDate,
+    a.PreviousARTStartDate,
+    a.PreviousARTRegimen,
+    a.StartARTAtThisFacility,
+    a.StartRegimen,
+    CASE
+      WHEN a.StartRegimenLineCategory IS NULL THEN 'unknown'
+      ELSE a.StartRegimenLineCategory
+    END AS StartRegimenLine,
+    a.LastARTDate,
+    CASE
+      WHEN  a.LastRegimen IS NULL THEN 'unknown'
+      ELSE  a.LastRegimen
+    END AS 'LastRegimen',
+    IF(a.LastRegimenLine IS NULL,
         1,
-        LastRegimenLine) AS `LastRegimenLine`,
-    Duration,
-    IF(ExpectedReturn = NULL,
-        DATE_ADD(LastVisit, INTERVAL 21 DAY),
-        LastVisit) AS ExpectedReturn,
-    Provider,
-    LastVisit,
-    ExitReason,
-    ExitDate
+        a.LastRegimenLine) AS `LastRegimenLine`,
+    a.Duration,
+    NULL AS 'PatientARTProfile',
+    IF(a.ExpectedReturn = NULL,
+        DATE_ADD(a.LastVisit, INTERVAL 21 DAY),
+        a.LastVisit) AS ExpectedReturn,
+    a.Provider,
+    a.LastVisit,
+    a.ExitReason,
+    a.ExitDate
 FROM
-    ndwr.ndwr_patient_art_extract
+    ndwr.ndwr_patient_art_extract a
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
-    group by PatientPK;
+    ndwr.ndwr_selected_site_2  s USING (SiteCode)
+    join ndwr.ndwr_all_patients_extract e on (e.PatientPK = a.PatientPK  AND a.SiteCode = e.SiteCode)
+    WHERE a.LastVisit >= a.StartARTDate
+    group by a.PatientPK;
 		
 ===============================================
 
@@ -554,7 +566,8 @@ FROM
     ndwr.ndwr_patient_depression_screening
         JOIN
     ndwr.ndwr_selected_site_2 USING (SiteCode)
-    group by VisitID;
+    group by VisitID
+    LIMIT 0;
 
 
   =====================================================

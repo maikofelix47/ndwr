@@ -20,24 +20,24 @@ select distinct PatientPK from ndwr.ndwr_all_patients_extract where StatusAtCCC 
 CALL `ndwr`.`build_NDWR_all_patient_status_extract`("build",1,1,1,true);
 ###################################
 replace into ndwr.ndwr_pharmacy_build_queue (
-select distinct person_id from etl.flat_hiv_summary_v15b where cur_arv_meds is not null and encounter_datetime >= '2021-06-01 00:00:00'
+select distinct person_id from etl.flat_hiv_summary_v15b where cur_arv_meds is not null and date_created >= '2021-12-01 00:00:00'
 );
 CALL `ndwr`.`build_NDWR_pharmacy`("build",1,1,1,true);
 ##################################
 replace into ndwr.ndwr_patient_labs_extract_build_queue(
 select distinct person_id from amrs.obs where concept_id in (856,730,5497)
-    and voided = 0 and date_created >= '2021-06-01'
+    and voided = 0 and date_created >= '2021-12-01'
 );
 CALL `ndwr`.`build_NDWR_ndwr_patient_labs_extract`("build",1,1,1,true);
 ###################################
-replace into ndwr.ndwr_all_patient_visits_extract_build_queue (
+replace into ndwr.ndwr_all_patient_visits_extract_build_queue  (
 select distinct PatientPK from ndwr.ndwr_all_patients_extract
 );
 CALL `ndwr`.`build_NDWR_all_patient_visits_extract`("build",1,1,1,true);
 ##################################
 use ndwr;
 replace into ndwr.ndwr_patient_baselines_extract_build_queue (
-   select distinct s.person_id from etl.flat_hiv_summary_v15b s where	(s.arv_first_regimen_start_date <> ''	or s.enrollment_date<>'') and encounter_datetime >= '2021-03-01 00:00:00'
+   select distinct s.person_id from etl.flat_hiv_summary_v15b s where	(s.arv_first_regimen_start_date <> ''	or s.enrollment_date<>'') and encounter_datetime >= '2021-12-01 00:00:00'
 );
 CALL `ndwr`.`build_ndwr_patient_baselines_extract`("build",1,1,true);
 ##############################################

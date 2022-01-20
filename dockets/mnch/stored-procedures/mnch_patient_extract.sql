@@ -1,5 +1,3 @@
-use ndwr;
-DELIMITER $$
 CREATE  PROCEDURE `build_ndwr_mnch_patient_extract`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN log BOOLEAN)
 BEGIN
 
@@ -34,11 +32,10 @@ CREATE TABLE IF NOT EXISTS ndwr_mnch_patients_extract (
     `PatientResidentWard` VARCHAR(100) NULL,
     `Inschool` VARCHAR(10) NULL,
     `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX patient_patient_id (PatientID),
     INDEX patient_patient_pk (PatientPK),
     INDEX patient_site_code (SiteCode),
     INDEX patient_date_created (DateCreated),
-    INDEX patient_patient_site_code (PatientID , SiteCode)
+    INDEX patient_patient_site_code (PatientPK , SiteCode)
 );
 
                     if(@query_type="build") then
@@ -100,9 +97,9 @@ SELECT CONCAT('Deleting data from ', @primary_table);
                     while @person_ids_count > 0 do
 
                         	set @loop_start_time = now();
-							drop  table if exists ndwr_all_patients_build_queue__0;
+							drop  table if exists ndwr_mnch_patient_extract_build_queue__0;
 
-                                      SET @dyn_sql=CONCAT('create temporary table if not exists ndwr_mnch_patient_extract_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit ',cycle_size,');'); 
+                                      SET @dyn_sql=CONCAT('create temporary table if not exists ndwr_mnch_patient_extract_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit 1);'); 
 						              PREPARE s1 from @dyn_sql; 
 						              EXECUTE s1; 
 						              DEALLOCATE PREPARE s1;
@@ -117,24 +114,104 @@ SELECT CONCAT('Creating soundex mapping ...');
                                     q.person_id,
                                     p.gender,
                                     p.birthdate,
-									i.identifier as 'PatientID',
+                                    h.identifier as PatientHEI_ID,
+                                    u.identifier as PatientMNCH_ID,
                                     cn.name as 'Occupation',
+                                    en.name as 'EducationLevel',
+                                    addr.address1 as 'PatientResidentCounty',
+                                    addr.address2 as 'PatientResidentSubCounty',
                                     CONCAT(p.gender,n.given_name,SOUNDEX(n.given_name),SOUNDEX(n.family_name),DATE_FORMAT(p.birthdate,'%Y')) as 'Pkv'
                                 FROM
                                     ndwr.ndwr_mnch_patient_extract_build_queue__0 q
                                     left join amrs.person p on (p.person_id = q.person_id AND p.voided = 0)
                                     left join amrs.person_name n on (n.person_id = q.person_id AND n.voided = 0)
                                     left join amrs.person_attribute a on (a.person_id = q.person_id AND a.person_attribute_type_id = 42 AND a.voided = 0)
+                                    left join amrs.person_attribute e on (e.person_id = q.person_id AND e.person_attribute_type_id = 73 AND e.voided = 0)
                                     left join amrs.concept_name cn on (cn.concept_id = a.value and cn.locale_preferred = 1 AND a.value != 5622)
-                                    left join amrs.patient_identifier i on (i.patient_id = q.person_id AND i.identifier_type = 28 AND i.voided = 0)
+                                    left join amrs.concept_name en on (en.concept_id = e.value and en.locale_preferred = 1 AND e.value != 5622)
+                                    left join amrs.patient_identifier h on (h.patient_id = q.person_id AND h.identifier_type = 38 AND h.voided = 0)
+                                    left join amrs.patient_identifier u on (u.patient_id = q.person_id AND u.identifier_type = 8 AND u.voided = 0)
+                                    left join amrs.person_address addr on (addr.person_id = q.person_id and addr.voided = 0)
                                     group by q.person_id
 
                           );
+                          
+						-- Get patients latest pmtct or hei clinical encounter
+                        
+                        SELECT CONCAT('getting latest enocunter ...');
+                        
+                        drop temporary table if exists ndwr_mnch_patient_extract_latest_encounter;
+                        create temporary table ndwr_mnch_patient_extract_latest_encounter(
+                        SELECT 
+                                m.*,
+								fa.encounter_datetime as VisitDate,
+                                fa.encounter_id as EncounterID,
+                                fa.location_id
+							FROM
+								ndwr_patient_pkv_occcupation_mapping m
+									JOIN
+								etl.flat_appointment fa ON (fa.person_id = m.person_id)
+							WHERE
+									fa.program_id IN (4 , 29)
+                                    AND fa.is_clinical = 1
+									order by fa.encounter_datetime desc
+									limit 1
+                        
+                        );
+                        
+                         SELECT CONCAT('getting FirstEnrollmentAtMNCH ...');
+                        
+                         drop temporary table if exists ndwr_mnch_patient_extract_mnch_first_enrollment;
+                        create temporary table ndwr_mnch_patient_extract_mnch_first_enrollment(
+                        SELECT 
+                                m.*,
+								fa.encounter_datetime as 'FirstEnrollmentAtMNCH'
+							FROM
+								ndwr_mnch_patient_extract_latest_encounter m
+									JOIN
+								etl.flat_appointment fa ON (fa.person_id = m.person_id)
+							WHERE
+									fa.program_id IN (4 , 29)
+                                    AND fa.is_clinical = 1
+									order by fa.encounter_datetime asc
+									limit 1
+                        
+                        );
+                        
+                        
 
-SELECT CONCAT('Creating ndwr_mnch_patient_extract_interim table ...');
+						SELECT CONCAT('Creating ndwr_mnch_patient_extract_interim table ...');
                                       
 						  
                           drop temporary table if exists ndwr_mnch_patient_extract_interim;
+                          create temporary table ndwr_mnch_patient_extract_interim (
+                          SELECT
+                           Pkv,
+                           l.person_id AS PatientPK,
+                           mfl.mfl_code as SiteCode,
+                           PatientMNCH_ID,
+                           EncounterID,
+                           VisitDate,
+                           PatientHEI_ID,
+						  'AMRS' AS Emr,
+						  'Ampath Plus' AS 'Project',
+						   mfl.Facility AS FacilityName,
+						   l.gender as Gender,
+						   l.birthdate as DOB,
+						   FirstEnrollmentAtMNCH,
+						   l.Occupation AS 'Occupation',
+						   NULL AS MaritalStatus,
+						   EducationLevel,
+						   PatientResidentCounty,
+						   PatientResidentSubCounty,
+						   NULL AS PatientResidentWard,
+						   NULL AS Inschool,
+                           NULL AS DateCreated
+                            FROM 
+                            ndwr_mnch_patient_extract_mnch_first_enrollment l
+                             JOIN
+                          ndwr.mfl_codes mfl ON (mfl.location_id = l.location_id)
+                          );
                           
 
 
@@ -144,21 +221,21 @@ SELECT CONCAT('Creating ndwr_mnch_patient_extract_interim table ...');
 SELECT 
     COUNT(*)
 INTO @new_encounter_rows FROM
-    ndwr_all_patients_interim;
+    ndwr_mnch_patient_extract_interim;
 SELECT @new_encounter_rows;                    
                           set @total_rows_written = @total_rows_written + @new_encounter_rows;
 SELECT @total_rows_written;
 
-                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select * from ndwr_all_patients_interim)');
+                          SET @dyn_sql=CONCAT('replace into ',@write_table,'(select * from ndwr_mnch_patient_extract_interim)');
 
                           PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
                           DEALLOCATE PREPARE s1;
 
-                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_all_patients_build_queue__0 t2 using (person_id);'); 
-					                PREPARE s1 from @dyn_sql; 
+                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_mnch_patient_extract_build_queue__0 t2 using (person_id);'); 
+						  PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
-					                DEALLOCATE PREPARE s1;  
+						  DEALLOCATE PREPARE s1;  
                         
 
 						 SET @dyn_sql=CONCAT('select count(*) into @person_ids_count from ',@queue_table,';'); 
@@ -233,5 +310,4 @@ SELECT
             ' minutes');
 
 
-END$$
-DELIMITER ;
+END

@@ -1,3 +1,4 @@
+DELIMITER $$
 CREATE  PROCEDURE `build_ndwr_mnch_patient_extract`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN log BOOLEAN)
 BEGIN
 
@@ -115,7 +116,10 @@ SELECT CONCAT('Creating soundex mapping ...');
                                     p.gender,
                                     p.birthdate,
                                     h.identifier as PatientHEI_ID,
-                                    u.identifier as PatientMNCH_ID,
+                                    CASE
+                                     WHEN u.identifier IS NOT NULL THEN  u.identifier
+                                     ELSE an.identifier
+                                    END AS 'PatientMNCH_ID',
                                     cn.name as 'Occupation',
                                     en.name as 'EducationLevel',
                                     addr.address1 as 'PatientResidentCounty',
@@ -131,6 +135,7 @@ SELECT CONCAT('Creating soundex mapping ...');
                                     left join amrs.concept_name en on (en.concept_id = e.value and en.locale_preferred = 1 AND e.value != 5622)
                                     left join amrs.patient_identifier h on (h.patient_id = q.person_id AND h.identifier_type = 38 AND h.voided = 0)
                                     left join amrs.patient_identifier u on (u.patient_id = q.person_id AND u.identifier_type = 8 AND u.voided = 0)
+									left join amrs.patient_identifier an on (an.patient_id = q.person_id AND an.identifier_type = 3 AND an.voided = 0)
                                     left join amrs.person_address addr on (addr.person_id = q.person_id and addr.voided = 0)
                                     group by q.person_id
 
@@ -310,4 +315,5 @@ SELECT
             ' minutes');
 
 
-END
+END$$
+DELIMITER ;

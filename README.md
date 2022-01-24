@@ -1,6 +1,6 @@
 # AMPATH National Data Warehouse Scripts
-This project contains scripts used to process AMPATH AMRS data accoring to NDWH dictionary
-as well as DWAPI docker scripts for Patient Care Treatmsne and MNCH
+This project contains scripts used to process AMPATH AMRS data according to NDWH dictionary
+as well as DWAPI docker scripts for Patient Care Treatment and MNCH
 
 ### Data Warehouse Resources
 

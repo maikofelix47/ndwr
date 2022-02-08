@@ -886,5 +886,81 @@ FROM
 
 
 
+  SELECT 
+    PatientPK,
+    SiteCode,
+    PatientID,
+    Emr,
+    Project,
+    FacilityName,
+    FacilityId,
+    VisitID,
+    Covid19AssessmentDate,
+    ReceivedCOVID19Vaccine,
+    DateGivenFirstDose,
+    FirstDoseVaccineAdministered,
+    DateGivenSecondDose,
+    SecondDoseVaccineAdministered,
+    VaccinationStatus,
+    VaccineVerification,
+    VaccineVerificationSecondDose,
+    BoosterGiven,
+    BoosterDose,
+    BoosterDoseDate,
+    Sequence,
+    COVID19TestResult,
+    BoosterDoseVerified,
+    COVID19TestDate,
+    PatientStatus,
+    AdmissionStatus,
+    AdmissionUnit,
+    MissedAppointmentDueToCOVID19,
+    COVID19PositiveSinceLasVisit,
+    COVID19TestDateSinceLastVisit,
+    PatientStatusSinceLastVisit,
+    AdmissionStatusSinceLastVisit,
+    AdmissionStartDate,
+    AdmissionEndDate,
+    AdmissionUnitSinceLastVisit,
+    SupplementalOxygenReceived,
+    PatientVentilated,
+    EverCOVID19Positive,
+    TracingFinalOutcome,
+    CauseOfDeath
+FROM
+    ndwr.ndwr_covid_extract
+
+
+
+
+######################################################################
+
+
+SELECT 
+    PatientPK,
+    SiteCode,
+    PatientID,
+    Emr,
+    Project,
+    FacilityName,
+    FacilityId,
+    VisitID,
+    VisitDate,
+    EncounterId,
+    TracingType,
+    TracingOutcome,
+    AttemptNumber,
+    IsFinalTrace,
+    TrueStatus,
+    CauseOfDeath,
+    Comments,
+    BookingDate
+FROM
+    ndwr.ndwr_defaulter_tracing_extract;
+
+
+
+
+
   
 		

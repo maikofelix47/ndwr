@@ -18,7 +18,7 @@ SELECT
     AdverseEventRegimen
 FROM
     ndwr.ndwr_patient_adverse_events
-    join ndwr.ndwr_selected_site_2 using (SiteCode)
+    join ndwr.ndwr_selected_site_3 using (SiteCode)
     LIMIT 0;
 	
 ========================================
@@ -93,7 +93,7 @@ SELECT
 FROM
     ndwr.ndwr_all_patient_visits_extract
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
 WHERE
     DATE(VisitDate) >= '1997-01-01'
     GROUP BY VisitID;
@@ -123,7 +123,7 @@ SELECT
 FROM
     ndwr.ndwr_all_patient_status_extract
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
 group by PatientPK;
 			
 ===============================================
@@ -164,7 +164,7 @@ SELECT
 FROM
     ndwr.ndwr_patient_baselines_extract
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode);
+    ndwr.ndwr_selected_site_3 USING (SiteCode);
 		
 			
 ====================================================
@@ -193,7 +193,7 @@ SELECT
 FROM
     ndwr.ndwr_patient_labs_extract
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
     group by VisitID;
 		 
 ==================================================
@@ -245,7 +245,7 @@ SELECT
 FROM
     ndwr.ndwr_patient_art_extract a
         JOIN
-    ndwr.ndwr_selected_site_2  s USING (SiteCode)
+    ndwr.ndwr_selected_site_3  s USING (SiteCode)
     join ndwr.ndwr_all_patients_extract e on (e.PatientPK = a.PatientPK  AND a.SiteCode = e.SiteCode)
     WHERE a.LastVisit >= a.StartARTDate
     group by a.PatientPK;
@@ -282,7 +282,7 @@ SELECT
 FROM
     ndwr.ndwr_pharmacy
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
 WHERE
     DATE(DispenseDate) >= '1997-01-01'
     group by VisitID;
@@ -346,7 +346,7 @@ SELECT
 FROM
     ndwr.ndwr_all_patients_extract
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
 GROUP BY PatientPK;
 
 
@@ -372,7 +372,7 @@ SELECT
     FROM
     ndwr.ndwr_otz_patient_visits
     JOIN
-	    ndwr.ndwr_selected_site_2 USING (SiteCode)
+	    ndwr.ndwr_selected_site_3 USING (SiteCode)
         group by VisitID
         LIMIT 0;
 
@@ -471,7 +471,7 @@ SELECT
 FROM
     ndwr.ndwr_patient_eac
     JOIN
-	    ndwr.ndwr_selected_site_2 USING (SiteCode)
+	    ndwr.ndwr_selected_site_3 USING (SiteCode)
         group by VisitID
          LIMIT 0;
 
@@ -566,7 +566,7 @@ FROM
 FROM
     ndwr.ndwr_patient_depression_screening
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
     group by VisitID
     LIMIT 0;
 
@@ -591,7 +591,7 @@ FROM
 FROM
     ndwr.ndwr_ovc_patient_visits
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
     group by VisitID
     LIMIT 0;
 
@@ -671,7 +671,7 @@ FROM
 FROM
     ndwr.ndwr_patient_ipt_extract
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
     group by VisitID
     LIMIT 0;
 
@@ -713,7 +713,7 @@ FROM
 FROM
     ndwr.ndwr_gbv_screening
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
     group by VisitID
     LIMIT 0;
     
@@ -743,7 +743,7 @@ SELECT
 FROM
     ndwr.ndwr_drug_alcohol_screening
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
     group by VisitID
     LIMIT 0;
 
@@ -831,7 +831,7 @@ SELECT
 FROM
     ndwr.ndwr_patient_contact_listing c
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
     group by VisitID
     LIMIT 0;
 
@@ -876,7 +876,7 @@ FROM
 FROM
     ndwr.ndwr_patient_allergies_chronic_illness
         JOIN
-    ndwr.ndwr_selected_site_2 USING (SiteCode)
+    ndwr.ndwr_selected_site_3 USING (SiteCode)
     group by VisitID
     LIMIT 0;
 

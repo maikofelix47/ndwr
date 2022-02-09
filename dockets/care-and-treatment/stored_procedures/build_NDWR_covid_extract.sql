@@ -1,5 +1,3 @@
-use ndwr;
-DELIMITER $$
 CREATE  PROCEDURE `build_NDWR_covid_extract`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN log BOOLEAN)
 BEGIN
 
@@ -9,7 +7,7 @@ BEGIN
 					set @table_version = "ndwr_covid_v1.0";
                     set @query_type=query_type;
                     set @last_date_created := null;
-                    set @last_date_created = (select max(DateCreated) from ndwr.ndwr_covid_extract);
+                    -- set @last_date_created = (select max(DateCreated) from ndwr.ndwr_covid_extract);
                     set @endDate := LAST_DAY(CURDATE());
 
 CREATE TABLE IF NOT EXISTS ndwr_covid_extract (
@@ -64,8 +62,8 @@ CREATE TABLE IF NOT EXISTS ndwr_covid_extract (
                     if(@query_type="build") then
 
 							              select 'BUILDING..........................................';
-                            set @write_table = concat("ndwr_covid_temp_",queue_number);
-                            set @queue_table = concat("ndwr_covid_build_queue_",queue_number);
+                            set @write_table = concat("ndwr_covid_extract_temp_",queue_number);
+                            set @queue_table = concat("ndwr_covid_extract_build_queue_",queue_number);
 
 										  SET @dyn_sql=CONCAT('create table if not exists ',@write_table,' like ',@primary_table);
 							              PREPARE s1 from @dyn_sql; 
@@ -73,12 +71,12 @@ CREATE TABLE IF NOT EXISTS ndwr_covid_extract (
 							              DEALLOCATE PREPARE s1;  
 
 
-							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_covid_build_queue limit ', queue_size, ');'); 
+							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_covid_extract_build_queue limit ', queue_size, ');'); 
 							              PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
 
-							              SET @dyn_sql=CONCAT('delete t1 from ndwr_covid_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
+							              SET @dyn_sql=CONCAT('delete t1 from ndwr_covid_extract_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
                                           PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1; 
@@ -151,9 +149,9 @@ SELECT CONCAT('Deleting data from ', @primary_table);
                     while @person_ids_count > 0 do
 
                         	set @loop_start_time = now();
-							drop  table if exists ndwr_covid_build_queue__0;
+							drop  table if exists ndwr_covid_extract_build_queue__0;
 
-                                      SET @dyn_sql=CONCAT('create temporary table if not exists ndwr_covid_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit ',cycle_size,');'); 
+                                      SET @dyn_sql=CONCAT('create temporary table if not exists ndwr_covid_extract_build_queue__0 (person_id int primary key) (select * from ',@queue_table,' limit ',cycle_size,');'); 
 						              PREPARE s1 from @dyn_sql; 
 						              EXECUTE s1; 
 						              DEALLOCATE PREPARE s1;
@@ -161,16 +159,230 @@ SELECT CONCAT('Deleting data from ', @primary_table);
 
                          
 
-SELECT CONCAT('Creating ndwr_covid_interim table ...');
+SELECT CONCAT('Creating ndwr_covid_immunization_flat_obs table ...');
                                       
-						  
-                          drop temporary table if exists ndwr_covid_interim;
+						    set @boundary := '!!';
+                           
+                          drop  table if exists ndwr_covid_immunization_flat_obs;
                           
-CREATE temporary TABLE ndwr_covid_interim (
-    SELECT
-    NULL AS 'DateCreated'
+CREATE  TABLE ndwr_covid_immunization_flat_obs (
+    SELECT 
+    og.person_id,
+    og.obs_id,
+    og.location_id,
+    og.encounter_id,
+    e.encounter_datetime,
+    og.encounter_id as VisitID,
+    e.encounter_datetime as Covid19AssessmentDate,
+    og.obs_group_id,
+    og.obs_datetime as 'assesment_date',
+    og.concept_id,
+    og.value_coded,
+    GROUP_CONCAT(CASE
+            WHEN
+                o.value_coded IS NOT NULL
+            THEN
+                CONCAT(@boundary,
+                        o.concept_id,
+                        '=',
+                        o.value_coded,
+                        @boundary)
+            WHEN
+                o.value_numeric IS NOT NULL
+            THEN
+                CONCAT(@boundary,
+                        o.concept_id,
+                        '=',
+                        o.value_numeric,
+                        @boundary)
+            WHEN
+                o.value_datetime IS NOT NULL
+            THEN
+                CONCAT(@boundary,
+                        o.concept_id,
+                        '=',
+                        DATE(o.value_datetime),
+                        @boundary)
+            WHEN
+                o.value_text IS NOT NULL
+            THEN
+                CONCAT(@boundary,
+                        o.concept_id,
+                        '=',
+                        o.value_text,
+                        @boundary)
+            WHEN
+                o.value_modifier IS NOT NULL
+            THEN
+                CONCAT(@boundary,
+                        o.concept_id,
+                        '=',
+                        o.value_modifier,
+                        @boundary)
+        END
+        ORDER BY o.concept_id , o.value_coded
+        SEPARATOR ' ## ') AS obs,
+    GROUP_CONCAT(CASE
+            WHEN
+                o.value_coded IS NOT NULL
+                    OR o.value_numeric IS NOT NULL
+                    OR o.value_datetime IS NOT NULL
+                    OR o.value_text IS NOT NULL
+                    OR o.value_drug IS NOT NULL
+                    OR o.value_modifier IS NOT NULL
+            THEN
+                CONCAT(@boundary,
+                        o.concept_id,
+                        '=',
+                        DATE(o.obs_datetime),
+                        @boundary)
+        END
+        ORDER BY o.concept_id , o.value_coded
+        SEPARATOR ' ## ') AS obs_datetimes
 FROM
-    etl.flat_obs);
+    ndwr.ndwr_covid_extract_build_queue__0 q
+        JOIN
+        amrs.obs og on (og.person_id = q.person_id)
+        JOIN
+    amrs.obs o ON (og.obs_id = o.obs_group_id)
+       join amrs.encounter e on (e.encounter_id = og.encounter_id)
+WHERE
+        e.encounter_type in (208)
+        AND og.concept_id IN (1390)
+GROUP BY o.obs_group_id
+order by og.obs_datetime
+);
+
+SELECT CONCAT('Creating immunization details from immunization flat_obs');
+
+                            SET @ReceivedCOVID19Vaccine:= NULL;
+                            SET @DategivenFirstDose:= NULL;
+                            SET @FirstDoseVaccineAdministered := NULL;
+                            SET @DateGivenSecondDose := NULL;
+                            SET @SecondDoseVaccineAdministered := null;
+                            set @VaccinationStatus := null;
+                            SET @VaccineVerification:= NULL;
+                            SET @VaccineVerificationSecondDose := NULL;
+                            set @prev_id = -1;
+                            set @cur_id = -1;
+
+drop  table if exists ndwr_covid_immunization;
+create  table ndwr_covid_immunization(
+select c.* from (
+select b.* from (
+SELECT
+ i.*,
+ @prev_id := @cur_id as prev_id,
+ @cur_id := i.person_id as cur_id,
+ i.person_id AS 'PatientPK',
+ mfl.mfl_code as 'SiteCode',
+ mfl.mfl_code as 'FacilityID',
+ mfl.Facility AS 'FacilityName',
+ CASE
+  WHEN i.obs regexp "!!10485=1!!" THEN 1
+  WHEN i.obs regexp "!!10485=2!!" THEN 2
+  WHEN i.obs regexp "!!10485=3!!" THEN 3
+  else 0
+END AS vaccince_sort_index,
+CASE
+  WHEN i.obs regexp "!!10485=(1|2)!!" THEN @ReceivedCOVID19Vaccine := 1
+  when @prev_id = @cur_id then @ReceivedCOVID19Vaccine
+  else @ReceivedCOVID19Vaccine := null
+END AS 'ReceivedCOVID19Vaccine',
+CASE
+  WHEN i.obs regexp "!!10485=1!!" THEN @DategivenFirstDose := etl.GetValues(i.obs,10958)
+  when @prev_id = @cur_id then @DategivenFirstDose
+  else @DategivenFirstDose := null
+END AS DategivenFirstDose,
+CASE
+  WHEN i.obs regexp "!!10485=1!!" THEN @FirstDoseVaccineAdministered := etl.GetValues(i.obs,984)
+  when @prev_id = @cur_id then @FirstDoseVaccineAdministered
+  else @FirstDoseVaccineAdministered := null
+END AS FirstDoseVaccineAdministered,
+CASE
+  WHEN i.obs regexp "!!10485=2!!" THEN @DateGivenSecondDose:= etl.GetValues(i.obs,10958)
+  when @prev_id = @cur_id then @DateGivenSecondDose
+  else @DateGivenSecondDose := null
+END AS DateGivenSecondDose,
+CASE
+  WHEN i.obs regexp "!!10485=2!!" THEN @SecondDoseVaccineAdministered := etl.GetValues(i.obs,984)
+  when @prev_id = @cur_id then @SecondDoseVaccineAdministered
+  else @SecondDoseVaccineAdministered := null
+END AS SecondDoseVaccineAdministered,
+CASE
+  WHEN i.obs regexp "!!2300=" THEN @VaccinationStatus := etl.GetValues(i.obs,2300)
+  when @prev_id = @cur_id then @VaccinationStatus
+  else @VaccinationStatus := null
+END AS VaccinationStatus,
+CASE
+  WHEN i.obs regexp "!!11906=" THEN @VaccineVerification := etl.GetValues(i.obs,11906)
+  when @prev_id = @cur_id then @VaccineVerification
+  else @VaccineVerification := null
+END AS VaccineVerification,
+CASE
+  WHEN i.obs regexp "!!11906=" AND i.obs regexp "!!10485=2!!" THEN @VaccineVerificationSecondDose := etl.GetValues(i.obs,11906)
+  when @prev_id = @cur_id then @VaccineVerificationSecondDose
+  else @VaccineVerificationSecondDose := null
+END AS VaccineVerificationSecondDose
+FROM
+ ndwr_covid_immunization_flat_obs i
+  left JOIN
+ ndwr.mfl_codes mfl ON (mfl.location_id = i.location_id)
+
+) b order by b.person_id, b.encounter_datetime, b.vaccince_sort_index desc ) c group by c.person_id, encounter_id);
+
+SELECT CONCAT('Creating ndwr_covid_interim table');
+
+drop temporary table if exists ndwr_covid_interim;
+create temporary table ndwr_covid_interim(
+    SELECT 
+     q.person_id as PatientPK,
+     i.SiteCode,
+     q.person_id as PatientID,
+    'AMRS' AS Emr,
+    'Ampath Plus' AS 'Project',
+     i.FacilityName,
+     i.FacilityID,
+     i.VisitID,
+     i.Covid19AssessmentDate,
+     i.ReceivedCOVID19Vaccine,
+     i.DateGivenFirstDose,
+     i.FirstDoseVaccineAdministered,
+     i.DateGivenSecondDose,
+     i.SecondDoseVaccineAdministered,
+     i.VaccinationStatus,
+     i.VaccineVerification,
+     i.VaccineVerificationSecondDose,
+     NULL AS BoosterGiven,
+     null as BoosterDose,
+     NULL AS 'Sequence',
+     NULL AS COVID19TestResult,
+     NULL AS BoosterDoseVerified,
+     NULL AS COVID19TestDate,
+     NULL AS PatientStatus,
+     NULL AS AdmissionStatus,
+     NULL AS AdmissionUnit,
+     NULL AS MissedAppointmentDueToCOVID19,
+     NULL AS COVID19PositiveSinceLasVisit,
+     NULL AS COVID19TestDateSinceLastVisit,
+     NULL AS PatientStatusSinceLastVisit,
+     NULL AS AdmissionStatusSinceLastVisit,
+     NULL AS AdmissionStartDate,
+     NULL AS AdmissionEndDate,
+     NULL AS AdmissionUnitSinceLastVisit,
+     NULL AS SupplementalOxygenReceived,
+     NULL AS PatientVentilated,
+     NULL AS EverCOVID19Positive,
+     NULL AS TracingFinalOutcome,
+     NULL AS CauseOfDeath,
+     NULL AS DateCreated
+    FROM
+    ndwr.ndwr_covid_extract_build_queue__0 q
+    LEFT JOIN 
+    ndwr.ndwr_covid_immunization i on (i.person_id = q.person_id)
+
+);
+
 
                         
                           
@@ -189,7 +401,7 @@ SELECT @total_rows_written;
                           EXECUTE s1; 
                           DEALLOCATE PREPARE s1;
 
-                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_covid_build_queue__0 t2 using (person_id);'); 
+                          SET @dyn_sql=CONCAT('delete t1 from ',@queue_table,' t1 join ndwr_covid_extract_build_queue__0 t2 using (person_id);'); 
 					                PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
 					                DEALLOCATE PREPARE s1;  
@@ -267,5 +479,4 @@ SELECT
             ' minutes');
 
 
-END$$
-DELIMITER ;
+END

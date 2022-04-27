@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS ndwr_covid_extract (
     `FacilityID` INT NULL,
     `VisitID` INT NOT NULL,
     `Covid19AssessmentDate` DATETIME NULL,
+    `NextCovidAssessmentDate` DATETIME NULL,
     `ReceivedCOVID19Vaccine` VARCHAR(100) NULL,
     `DateGivenFirstDose` DATETIME NULL,
     `FirstDoseVaccineAdministered` VARCHAR(100) NULL,
@@ -34,9 +35,9 @@ CREATE TABLE IF NOT EXISTS ndwr_covid_extract (
     `BoosterVaccine` VARCHAR(30) NULL,
     `BoosterDoseDate` DATETIME NULL,
     `BoosterDose` INT NULL,
+    `BoosterDoseVerified` VARCHAR(50) NULL,
     `Sequence` VARCHAR(50) NULL,
     `COVID19TestResult` VARCHAR(20) NULL,
-    `BoosterDoseVerified` VARCHAR(50) NULL,
     `COVID19TestDate` DATETIME NULL,
     `PatientStatus` VARCHAR(50) NULL,
     `HospitalAdmission` VARCHAR(50) NULL,
@@ -92,8 +93,9 @@ CREATE TABLE IF NOT EXISTS ndwr_covid_extract (
 				  end if;
                   
 SELECT 
-    CONCAT('Deleting dtest patients from ',
+    CONCAT('Deleting test patients from ',
             @queue_table);
+                  
                   
                    SET @dyn_sql=CONCAT('delete t1 FROM ',@queue_table,' t1
                             join amrs.person_attribute t2 using (person_id)
@@ -101,6 +103,7 @@ SELECT
                     PREPARE s1 from @dyn_sql; 
                     EXECUTE s1; 
                     DEALLOCATE PREPARE s1;
+                    
                   
                   SET @person_ids_count = 0;
 				  SET @dyn_sql=CONCAT('select count(*) into @person_ids_count from ',@queue_table); 
@@ -231,6 +234,8 @@ FROM
    join amrs.obs o on (o.obs_group_id = og.obs_id)
 WHERE
         og.concept_id = 1390
+		AND og.voided = 0
+        AND o.voided = 0
 GROUP BY og.obs_id
 ORDER BY og.obs_datetime asc, og.encounter_id);
 
@@ -297,11 +302,11 @@ CREATE TABLE ndwr.ndwr_immunization_data (SELECT i.*,
         ELSE @VaccineVerificationSecondDose:=NULL
     END AS VaccineVerificationSecondDose FROM
     flat_covid_obs_test i
-ORDER BY i.encounter_datetime , vaccince_sort_index ASC);
+ORDER BY i.person_id ,i.encounter_datetime asc);
  
 SELECT CONCAT('Creating ndwr_vaccination_encounter_summary table');
- drop temporary table if exists ndwr.ndwr_vaccination_encounter_summary;
- create temporary table ndwr.ndwr_vaccination_encounter_summary(
+ drop  table if exists ndwr.ndwr_vaccination_encounter_summary;
+ create  table ndwr.ndwr_vaccination_encounter_summary(
  SELECT 
     t.*,
     fd.DateGivenFirstDose,
@@ -313,7 +318,11 @@ SELECT CONCAT('Creating ndwr_vaccination_encounter_summary table');
       WHEN fd.VaccinationStatus IS NOT NULL  AND  sd.VaccinationStatus is null THEN fd.VaccinationStatus
       ELSE sd.VaccinationStatus
     END AS VaccinationStatus,
-	sd.VaccineVerification,
+     CASE
+      WHEN sd.VaccineVerification IS NOT NULL THEN sd.VaccineVerification
+      WHEN fd.VaccineVerification IS NOT NULL AND sd.VaccineVerification is null THEN fd.VaccineVerification
+      ELSE sd.VaccineVerification
+    END AS VaccineVerification,
 	sd.VaccineVerificationSecondDose
 FROM
     ndwr.ndwr_covid_encounters_temp t
@@ -327,6 +336,7 @@ FROM
         AND sd.vaccince_sort_index = 2)
         group by t.person_id, t.encounter_id
  );
+ 
  
 SELECT CONCAT('Creating flat_covid_booster_obs_test table');
 
@@ -411,6 +421,8 @@ FROM
    join amrs.obs o on (o.obs_group_id = og.obs_id)
 WHERE
         og.concept_id = 1944
+        AND og.voided = 0
+        AND o.voided = 0
 GROUP BY og.obs_id
 ORDER BY og.obs_datetime asc, og.encounter_id);
 
@@ -452,7 +464,7 @@ CASE
   else @BoosterDose:= null
 END AS BoosterDose,
 CASE
-  WHEN i.obs regexp "!!11906=!!" THEN @BoosterDoseVerified := etl.GetValues(i.obs,11906)
+  WHEN i.obs regexp "!!11906=" THEN @BoosterDoseVerified := etl.GetValues(i.obs,11906)
   when @prev_id = @cur_id then @BoosterDoseVerified
   else @BoosterDoseVerified:= null
 END AS BoosterDoseVerified
@@ -497,6 +509,7 @@ SELECT CONCAT('Creating ndwr_covid_screening_data');
  set @AdmissionEndDate:= null;
  set @AdmissionUnitSinceLastVisit:= null;
  set @SupplementalOxygenReceived:= null;
+ set @BoosterGiven:= null;
  set @prev_id = -1;
  set @cur_id = -1;
  
@@ -504,12 +517,19 @@ SELECT CONCAT('Creating ndwr_covid_screening_data');
  create temporary table ndwr.ndwr_covid_screening_data(
     select 
     t.*,
+	@prev_id := @cur_id as prev_id,
+	@cur_id := t.person_id as cur_id,
     CASE
 	  WHEN o.obs regexp "!!11899=" THEN @ReceivedCOVID19Vaccine := etl.GetValues(o.obs,11899)
       WHEN o.obs regexp "!!10485=(1|2)!!" THEN @ReceivedCOVID19Vaccine := 1065
 	  when @prev_id = @cur_id then @ReceivedCOVID19Vaccine
 	  else @ReceivedCOVID19Vaccine := null
 	END AS ReceivedCOVID19Vaccine,
+    CASE
+	  WHEN o.obs regexp "!!11911=" THEN @BoosterGiven := etl.GetValues(o.obs,11911)
+      when @prev_id = @cur_id then @BoosterGiven
+	  else @BoosterGiven := null
+	END AS BoosterGiven,
 	CASE
 	  WHEN o.obs regexp "!!11909=" THEN @COVID19TestEver := etl.GetValues(o.obs,11909)
 	  when @prev_id = @cur_id then @COVID19TestEver
@@ -517,32 +537,38 @@ SELECT CONCAT('Creating ndwr_covid_screening_data');
 	END AS 'COVID19TestEver',
     CASE
 	  WHEN o.obs regexp "!!11909=" THEN @COVID19TestResult := etl.GetValues(o.obs,11908)
+	  when @prev_id = @cur_id then @COVID19TestResult
 	  else @COVID19TestResult := null
 	END AS 'COVID19TestResult',
     CASE
 	  WHEN o.obs regexp "!!9728=" THEN @COVID19TestDate := etl.GetValues(o.obs,9728)
+	  when @prev_id = @cur_id then @COVID19TestDate
 	  else @COVID19TestDate := null
 	END AS 'COVID19TestDate',
     CASE
 	  WHEN o.obs regexp "!!11124=" THEN @COVID19Presentation := etl.GetValues(o.obs,11124)
+      when @prev_id = @cur_id then @COVID19Presentation
 	  else @COVID19Presentation := null
 	END AS 'COVID19Presentation',
 	CASE
-	  WHEN o.obs regexp "!!11124=" THEN @HospitalAdmission := etl.GetValues(o.obs,11124)
+	  WHEN o.obs regexp "!!6419=" THEN @HospitalAdmission := etl.GetValues(o.obs,6419)
+	  when @prev_id = @cur_id then @HospitalAdmission
 	  else @HospitalAdmission := null
 	END AS 'HospitalAdmission',
     CASE
 	  WHEN o.obs regexp "!!11912=" THEN @AdmissionUnit := etl.GetValues(o.obs,11912)
+	  when @prev_id = @cur_id then @AdmissionUnit
 	  else @AdmissionUnit := null
 	END AS 'AdmissionUnit',
     CASE
 	  WHEN o.obs regexp "!!11916=" THEN @SupplementalOxygenReceived := etl.GetValues(o.obs,11916)
+      when @prev_id = @cur_id then @SupplementalOxygenReceived
 	  else @SupplementalOxygenReceived := null
 	END AS 'SupplementalOxygenReceived'
     from  
     ndwr.ndwr_covid_encounters_temp t
     join etl.flat_obs o on (o.person_id = t.person_id AND t.encounter_id = o.encounter_id)
-    order by t.encounter_datetime asc
+    order by t.person_id,t.encounter_datetime asc
  
  );
  
@@ -553,10 +579,10 @@ SELECT CONCAT('Creating ndwr_covid_screening_data');
  
  
                          
-SELECT CONCAT('Creating ndwr_covid_interim table');
+SELECT CONCAT('Creating ndwr_covid_immunization_booster_screening table');
 
-drop temporary table if exists ndwr_covid_interim;
-create temporary table ndwr_covid_interim(
+drop temporary table if exists ndwr_covid_immunization_booster_screening;
+create temporary table ndwr_covid_immunization_booster_screening(
     SELECT 
      q.person_id as PatientPK,
      mfl.mfl_code AS SiteCode,
@@ -575,7 +601,7 @@ create temporary table ndwr_covid_interim(
      v.VaccinationStatus,
      v.VaccineVerification,
      v.VaccineVerificationSecondDose,
-     NULL AS BoosterGiven,
+     s.BoosterGiven,
      b.BoosterVaccine,
      b.BoosterDoseDate,
      b.BoosterDose,
@@ -598,8 +624,7 @@ create temporary table ndwr_covid_interim(
      NULL AS PatientVentilated,
      NULL AS EverCOVID19Positive,
      NULL AS TracingFinalOutcome,
-     NULL AS CauseOfDeath,
-     NULL AS DateCreated
+     NULL AS CauseOfDeath
     FROM
     ndwr.ndwr_covid_extract_build_queue__0 q
     join ndwr.ndwr_covid_encounters_temp t on (t.person_id = q.person_id)
@@ -610,6 +635,291 @@ create temporary table ndwr_covid_interim(
    ndwr.mfl_codes mfl ON (mfl.location_id = t.location_id)
 
 );
+
+
+SELECT CONCAT('Creating ndwr_covid_next');
+
+ set @prev_id = -1;
+ set @cur_id = -1;
+ set @prev_screening_date = null;
+ set @cur_screening_date = null;
+ set @cur_screening_date = null;
+
+drop temporary table if exists ndwr.ndwr_covid_next;
+create temporary table ndwr_covid_next(
+select 
+@prev_id := @cur_id as prev_id,
+@cur_id := t.PatientPK as cur_id,
+ case
+	when @prev_id = @cur_id then @prev_screening_date := @cur_screening_date
+	else @prev_screening_date := null
+end as NextCovid19AssessmentDate,
+@cur_screening_date := t.Covid19AssessmentDate as CurCovid19AssessmentDate,
+t.* 
+from 
+ndwr_covid_immunization_booster_screening t 
+order by t.Covid19AssessmentDate DESC
+);
+
+SET @DateGivenFirstDose = NULL;
+SET @FirstDoseVaccineAdministered:= null;
+SET @DateGivenSecondDose := NULL;
+SET @SecondDoseVaccineAdministered := null;
+set @VaccinationStatus:= null;
+set @VaccineVerification:= null;
+set @BoosterGiven:= null;
+set @BoosterVaccine:= null;
+set @BoosterDoseDate:= null;
+set @BoosterDose:= null;
+set @BoosterDoseVerified:= null;
+set @prev_id = -1;
+set @cur_id = -1;
+
+alter table ndwr.ndwr_covid_next drop column prev_id, drop column cur_id;
+
+SELECT CONCAT('Creating lag table');
+drop temporary table if exists ndwr.ndwr_covid_lag;
+create temporary table ndwr.ndwr_covid_lag(
+SELECT 
+    @prev_id:=@cur_id AS prev_id,
+    @cur_id:=e.PatientPK AS cur_id,
+    CASE
+        WHEN
+            @DateGivenFirstDose IS NULL
+                AND @prev_id != @cur_id
+                AND e.DateGivenFirstDose IS NOT NULL
+        THEN
+            @DateGivenFirstDose:=e.DateGivenFirstDose
+		WHEN
+            @DateGivenFirstDose IS NULL
+                AND @prev_id = @cur_id
+                AND e.DateGivenFirstDose IS NOT NULL
+        THEN
+            @DateGivenFirstDose:=e.DateGivenFirstDose
+        WHEN @prev_id = @cur_id THEN @DateGivenFirstDose
+        ELSE @DateGivenFirstDose:=NULL
+    END AS DateGivenFirstDoseLag,
+    CASE
+        WHEN
+            @FirstDoseVaccineAdministered IS NULL
+                AND @prev_id != @cur_id
+                AND e.FirstDoseVaccineAdministered IS NOT NULL
+        THEN
+            @FirstDoseVaccineAdministered:=e.FirstDoseVaccineAdministered
+		 WHEN
+            @FirstDoseVaccineAdministered IS NULL
+                AND @prev_id = @cur_id
+                AND e.FirstDoseVaccineAdministered IS NOT NULL
+        THEN
+            @FirstDoseVaccineAdministered:=e.FirstDoseVaccineAdministered
+        WHEN @prev_id = @cur_id THEN @FirstDoseVaccineAdministered
+        ELSE @FirstDoseVaccineAdministered:=NULL
+    END AS FirstDoseVaccineAdministeredLag,
+    CASE
+        WHEN
+            @DateGivenSecondDose IS NULL
+                AND @prev_id != @cur_id
+                AND e.DateGivenSecondDose IS NOT NULL
+        THEN
+            @DateGivenSecondDose:=e.DateGivenSecondDose
+		WHEN
+            @DateGivenSecondDose IS NULL
+                AND @prev_id = @cur_id
+                AND e.DateGivenSecondDose IS NOT NULL
+        THEN
+            @DateGivenSecondDose:=e.DateGivenSecondDose
+        WHEN @prev_id = @cur_id THEN @DateGivenSecondDose
+        ELSE @DateGivenSecondDose:=NULL
+    END AS DateGivenSecondDoseLag,
+    CASE
+        WHEN
+            @SecondDoseVaccineAdministered IS NULL
+                AND @prev_id != @cur_id
+                AND e.SecondDoseVaccineAdministered IS NOT NULL
+        THEN
+            @SecondDoseVaccineAdministered:=e.SecondDoseVaccineAdministered
+		 WHEN
+            @SecondDoseVaccineAdministered IS NULL
+                AND @prev_id = @cur_id
+                AND e.SecondDoseVaccineAdministered IS NOT NULL
+        THEN
+            @SecondDoseVaccineAdministered:=e.SecondDoseVaccineAdministered
+        WHEN @prev_id = @cur_id THEN @SecondDoseVaccineAdministered
+        ELSE @SecondDoseVaccineAdministered:=NULL
+    END AS SecondDoseVaccineAdministeredLag,
+    CASE
+        WHEN
+            @VaccinationStatus IS NULL
+                AND @prev_id != @cur_id
+                AND e.VaccinationStatus IS NOT NULL
+        THEN
+            @VaccinationStatus:=e.VaccinationStatus
+		 WHEN
+            @VaccinationStatus IS NULL
+                AND @prev_id = @cur_id
+                AND e.VaccinationStatus IS NOT NULL
+        THEN
+            @VaccinationStatus:=e.VaccinationStatus
+		WHEN @VaccinationStatus is NOT NULL AND e.VaccinationStatus = 2208 THEN @VaccinationStatus:=e.VaccinationStatus
+        WHEN @prev_id = @cur_id THEN @VaccinationStatus
+        ELSE @VaccinationStatus:=NULL
+    END AS VaccinationStatusLag,
+    CASE
+        WHEN
+            @VaccineVerification IS NULL
+                AND @prev_id != @cur_id
+                AND e.VaccineVerification IS NOT NULL
+        THEN
+            @VaccineVerification:=e.VaccineVerification
+		 WHEN
+            @VaccineVerification IS NULL
+                AND @prev_id = @cur_id
+                AND e.VaccineVerification IS NOT NULL
+        THEN
+            @VaccineVerification := e.VaccineVerification
+		WHEN @VaccineVerification is NOT NULL AND e.VaccineVerification = 2300 THEN @VaccineVerification := e.VaccineVerification
+        WHEN @prev_id = @cur_id THEN @VaccineVerification
+        ELSE @VaccineVerification:=NULL
+    END AS VaccineVerificationLag,
+    CASE
+        WHEN
+            @BoosterGiven IS NULL
+                AND @prev_id != @cur_id
+                AND e.BoosterGiven IS NOT NULL
+        THEN
+            @BoosterGiven:=e.BoosterGiven
+		 WHEN
+            @BoosterGiven IS NULL
+                AND @prev_id = @cur_id
+                AND e.BoosterGiven IS NOT NULL
+        THEN
+            @BoosterGiven:=e.BoosterGiven
+		WHEN @BoosterGiven is NOT NULL AND e.BoosterGiven = 1065 THEN @BoosterGiven:=e.BoosterGiven
+        WHEN @prev_id = @cur_id THEN @BoosterGiven
+        ELSE @BoosterGiven:=NULL
+    END AS BoosterGivenLag,
+    CASE
+        WHEN
+            @BoosterVaccine IS NULL
+                AND @prev_id != @cur_id
+                AND e.BoosterVaccine IS NOT NULL
+        THEN
+            @BoosterVaccine:=e.BoosterVaccine
+		 WHEN
+            @BoosterVaccine IS NULL
+                AND @prev_id = @cur_id
+                AND e.BoosterVaccine IS NOT NULL
+        THEN
+            @BoosterVaccine:=e.BoosterVaccine
+        WHEN @prev_id = @cur_id THEN @BoosterVaccine
+        ELSE @BoosterVaccine:=NULL
+    END AS BoosterVaccineLag,
+    CASE
+        WHEN
+            @BoosterDoseDate IS NULL
+                AND @prev_id != @cur_id
+                AND e.BoosterDoseDate IS NOT NULL
+        THEN
+            @BoosterDoseDate:=e.BoosterDoseDate
+		WHEN
+            @BoosterDoseDate IS NULL
+                AND @prev_id = @cur_id
+                AND e.BoosterDoseDate IS NOT NULL
+        THEN
+            @BoosterDoseDate:=e.BoosterDoseDate
+        WHEN @prev_id = @cur_id THEN @BoosterDoseDate
+        ELSE @BoosterDoseDate:=NULL
+    END AS BoosterDoseDateLag,
+    CASE
+        WHEN
+            @BoosterDose IS NULL
+                AND @prev_id != @cur_id
+                AND e.BoosterDose IS NOT NULL
+        THEN
+            @BoosterDose:=e.BoosterDose
+		WHEN
+            @BoosterDose IS NULL
+                AND @prev_id = @cur_id
+                AND e.BoosterDose IS NOT NULL
+        THEN
+            @BoosterDose:=e.BoosterDose
+        WHEN @prev_id = @cur_id THEN @BoosterDose
+        ELSE @BoosterDose:=NULL
+    END AS BoosterDoseLag,
+    CASE
+        WHEN
+            @BoosterDoseVerified IS NULL
+                AND @prev_id != @cur_id
+                AND e.BoosterDoseVerified IS NOT NULL
+        THEN
+            @BoosterDoseVerified:=e.BoosterDoseVerified
+		WHEN
+            @BoosterDoseVerified IS NULL
+                AND @prev_id = @cur_id
+                AND e.BoosterDoseVerified IS NOT NULL
+        THEN
+            @BoosterDoseVerified:=e.BoosterDoseVerified
+        WHEN @prev_id = @cur_id THEN @BoosterDoseVerified
+        ELSE @BoosterDoseVerified:=NULL
+    END AS BoosterDoseVerifiedLag,
+    e.*
+FROM
+   ndwr.ndwr_covid_next e
+ORDER BY e.PatientPK,e.Covid19AssessmentDate ASC
+);
+
+
+SELECT CONCAT('Creating interim table');
+drop temporary table if exists ndwr.ndwr_covid_interim;
+create temporary table ndwr.ndwr_covid_interim(
+select
+	 PatientPK,
+     SiteCode,
+     PatientID,
+     Emr,
+     Project,
+     FacilityName,
+     FacilityID,
+     VisitID,
+     Covid19AssessmentDate,
+     NextCovid19AssessmentDate,
+     ReceivedCOVID19Vaccine,
+     DateGivenFirstDoseLag as DateGivenFirstDose,
+     FirstDoseVaccineAdministeredLag as FirstDoseVaccineAdministered,
+     DateGivenSecondDoseLag as DateGivenSecondDose,
+     SecondDoseVaccineAdministeredLag as SecondDoseVaccineAdministered,
+     VaccinationStatusLag as VaccinationStatus,
+     VaccineVerificationLag as VaccineVerification,
+     VaccineVerificationSecondDose,
+     BoosterGivenLag as BoosterGiven,
+     BoosterVaccineLag as BoosterVaccine,
+     BoosterDoseDateLag as BoosterDoseDate,
+     BoosterDoseLag as BoosterDose,
+     BoosterDoseVerifiedLag as BoosterDoseVerified,
+     Sequence,
+     COVID19TestResult,
+     COVID19TestDate,
+     PatientStatus,
+     HospitalAdmission,
+     AdmissionUnit,
+     MissedAppointmentDueToCOVID19,
+     COVID19PositiveSinceLasVisit,
+     COVID19TestDateSinceLastVisit,
+     PatientStatusSinceLastVisit,
+     AdmissionStatusSinceLastVisit,
+     AdmissionStartDate,
+     AdmissionEndDate,
+     AdmissionUnitSinceLastVisit,
+     SupplementalOxygenReceived,
+     PatientVentilated,
+     EverCOVID19Positive,
+     TracingFinalOutcome,
+     CauseOfDeath,
+     NULL AS DateCreated
+     from ndwr.ndwr_covid_lag
+);
+
+
 
 
 
@@ -641,7 +951,8 @@ SELECT @total_rows_written;
 						  SET @dyn_sql=CONCAT('drop table ndwr.ndwr_immunization_data;'); 
 						  PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
-						  DEALLOCATE PREPARE s1;  
+						  DEALLOCATE PREPARE s1;
+                          
                         
 
 						 SET @dyn_sql=CONCAT('select count(*) into @person_ids_count from ',@queue_table,';'); 

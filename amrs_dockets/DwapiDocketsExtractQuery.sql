@@ -96,7 +96,85 @@ FROM
     ndwr.ndwr_selected_site USING (SiteCode)
 WHERE
     DATE(VisitDate) >= '1997-01-01';
+
+==========================================
+
+SELECT 
+    PatientPK,
+    SiteCode,
+    PatientID,
+    Emr,
+    Project,
+    FacilityName,
+    FacilityId,
+    VisitID,
+    Covid19AssessmentDate,
+    ReceivedCOVID19Vaccine,
+    DateGivenFirstDose,
+    FirstDoseVaccineAdministered,
+    DateGivenSecondDose,
+    SecondDoseVaccineAdministered,
+    VaccinationStatus,
+    VaccineVerification,
+    VaccineVerificationSecondDose,
+    BoosterGiven,
+    BoosterDose,
+    BoosterDoseDate,
+    Sequence,
+    COVID19TestResult,
+    BoosterDoseVerified,
+    COVID19TestDate,
+    PatientStatus,
+    NULL AS AdmissionStatus,
+    AdmissionUnit,
+    MissedAppointmentDueToCOVID19,
+    COVID19PositiveSinceLasVisit,
+    COVID19TestDateSinceLastVisit,
+    PatientStatusSinceLastVisit,
+    AdmissionStatusSinceLastVisit,
+    AdmissionStartDate,
+    AdmissionEndDate,
+    AdmissionUnitSinceLastVisit,
+    SupplementalOxygenReceived,
+    PatientVentilated,
+    EverCOVID19Positive,
+    TracingFinalOutcome,
+    CauseOfDeath
+FROM
+    ndwr.ndwr_covid_extract
+        JOIN
+    ndwr.ndwr_selected_site USING (SiteCode)
+GROUP BY VisitID
 		   
+==========================================
+
+  SELECT 
+    PatientPK,
+    SiteCode,
+    PatientID,
+    Emr,
+    Project,
+    FacilityName,
+    FacilityId,
+    VisitID,
+    VisitDate,
+    EncounterId,
+    TracingType,
+    TracingOutcome,
+    AttemptNumber,
+    IsFinalTrace,
+    TrueStatus,
+    CauseOfDeath,
+    Comments,
+    BookingDate
+FROM
+    ndwr.ndwr_defaulter_tracing_extract
+        JOIN
+    ndwr.ndwr_selected_site USING (SiteCode)
+GROUP BY VisitID
+
+
+
 ==========================================
 
   SELECT 

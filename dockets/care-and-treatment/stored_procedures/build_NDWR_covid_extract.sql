@@ -514,7 +514,7 @@ SELECT CONCAT('Creating ndwr_covid_screening_data');
  set @cur_id = -1;
  
   drop temporary table if exists ndwr.ndwr_covid_screening_data;
- create temporary table ndwr.ndwr_covid_screening_data(
+ create  temporary table ndwr.ndwr_covid_screening_data(
     select 
     t.*,
 	@prev_id := @cur_id as prev_id,

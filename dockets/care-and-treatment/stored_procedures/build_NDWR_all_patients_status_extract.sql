@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `ndwr`.`ndwr_all_patient_status_extract` (
     `TOVerified` TINYINT NULL,
     `TOVerifiedDate` DATETIME NULL,
     `ReEnrollmentDate` DATETIME NULL,
+    `EffectiveDiscontinuationDate` DATETIME NULL,
     `DateCreated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX status_patient_id (PatientID),
     INDEX status_patient_pk (PatientPK),
@@ -126,10 +127,16 @@ SELECT CONCAT('Creating and populating interim status table ..');
 				   null as 'TOVerified',
                    null as 'TOVerifiedDate',
                    NULL AS 'ReEnrollmentDate',
+                   CASE
+                     WHEN t1.StatusAtCCC = 'dead' THEN fz.death_date
+                     WHEN t1.StatusAtCCC in ('ltfu','transfer_out') THEN fz.rtc_date
+                     ELSE NULL
+                   END AS EffectiveDiscontinuationDate,
                    null as 'DateCreated'
 				   from 
                    ndwr_all_patient_status_extract_build_queue__0 q
 				   join ndwr.ndwr_all_patients_extract t1 on (t1.PatientPK = q.person_id)
+                   left JOIN etl.hiv_monthly_report_dataset_frozen fz on (fz.person_id = t1.PatientPK AND fz.endDate = '2022-04-30')
                      where t1.StatusAtCCC in('dead','ltfu','transfer_out')
 					);
                           

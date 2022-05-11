@@ -181,7 +181,7 @@ GROUP BY VisitID
     PatientPK,
     SiteCode,
     CASE
-      WHEN PatientID IS NULL THEN 'PatientPK'
+      WHEN PatientID IS NULL THEN PatientPK
       ELSE PatientID
     END AS 'PatientID',
     FacilityID,
@@ -194,6 +194,7 @@ GROUP BY VisitID
     NULL AS ReasonForDeath,
     NULL AS SpecificDeathReason,
     NULL AS 'ReEnrollmentDate',
+    EffectiveDiscontinuationDate,
     NULL AS DeathDate,
     TOVerified,
     TOVerifiedDate
@@ -963,8 +964,7 @@ FROM
   =====================================================
 
 
-
-  SELECT 
+SELECT 
     PatientPK,
     SiteCode,
     PatientID,
@@ -974,15 +974,56 @@ FROM
     FacilityId,
     VisitID,
     Covid19AssessmentDate,
-    ReceivedCOVID19Vaccine,
+    CASE
+      WHEN ReceivedCOVID19Vaccine = 1065 THEN 'Yes'
+      WHEN ReceivedCOVID19Vaccine = 1066 THEN 'No'
+      ELSE NULL
+    END AS ReceivedCOVID19Vaccine,
     DateGivenFirstDose,
-    FirstDoseVaccineAdministered,
+    CASE
+      WHEN FirstDoseVaccineAdministered = 11900 THEN 'ASTRAZENECA'
+      WHEN FirstDoseVaccineAdministered = 11901 THEN 'JOHNSON AND JOHNSON'
+      WHEN FirstDoseVaccineAdministered = 11902 THEN 'MODERNA'
+      WHEN FirstDoseVaccineAdministered = 11903 THEN 'PFIZER'
+      WHEN FirstDoseVaccineAdministered = 11904 THEN 'SPUTNIK'
+      WHEN FirstDoseVaccineAdministered = 11905 THEN 'SINOPHARM'
+      WHEN FirstDoseVaccineAdministered = 1067 THEN 'UNKNOWN'
+      ELSE NULL
+    END AS FirstDoseVaccineAdministered,
     DateGivenSecondDose,
-    SecondDoseVaccineAdministered,
-    VaccinationStatus,
-    VaccineVerification,
+     CASE
+      WHEN SecondDoseVaccineAdministered= 11900 THEN 'ASTRAZENECA'
+      WHEN SecondDoseVaccineAdministered = 11901 THEN 'JOHNSON AND JOHNSON'
+      WHEN SecondDoseVaccineAdministered = 11902 THEN 'MODERNA'
+      WHEN SecondDoseVaccineAdministered = 11903 THEN 'PFIZER'
+      WHEN SecondDoseVaccineAdministered = 11904 THEN 'SPUTNIK'
+      WHEN SecondDoseVaccineAdministered = 11905 THEN 'SINOPHARM'
+      WHEN SecondDoseVaccineAdministered = 1067 THEN 'UNKNOWN'
+      ELSE NULL
+    END AS SecondDoseVaccineAdministered,
+   CASE
+     WHEN VaccinationStatus = 11907 THEN 'Partially Vaccinated'
+     WHEN VaccinationStatus = 2208 THEN 'Fully Vaccinated'
+    END AS VaccinationStatus,
+    CASE
+     WHEN VaccineVerification = 2300 THEN 'Yes'
+     ELSE NULL
+    END AS VaccineVerification,
     VaccineVerificationSecondDose,
-    BoosterGiven,
+    CASE
+     WHEN  BoosterGiven = 1065 THEN 'Yes'
+	 WHEN  BoosterGiven = 1066 THEN 'No'
+    END AS  BoosterGiven,
+    CASE
+      WHEN BoosterVaccine= 11900 THEN 'ASTRAZENECA'
+      WHEN BoosterVaccine = 11901 THEN 'JOHNSON AND JOHNSON'
+      WHEN BoosterVaccine = 11902 THEN 'MODERNA'
+      WHEN BoosterVaccine = 11903 THEN 'PFIZER'
+      WHEN BoosterVaccine = 11904 THEN 'SPUTNIK'
+      WHEN BoosterVaccine = 11905 THEN 'SINOPHARM'
+      WHEN BoosterVaccine = 1067 THEN 'UNKNOWN'
+      ELSE NULL
+    END AS BoosterVaccine,
     BoosterDose,
     BoosterDoseDate,
     Sequence,
@@ -990,7 +1031,7 @@ FROM
     BoosterDoseVerified,
     COVID19TestDate,
     PatientStatus,
-    AdmissionStatus,
+    NULL AS AdmissionStatus,
     AdmissionUnit,
     MissedAppointmentDueToCOVID19,
     COVID19PositiveSinceLasVisit,
@@ -1007,6 +1048,9 @@ FROM
     CauseOfDeath
 FROM
     ndwr.ndwr_covid_extract
+        JOIN
+    ndwr.ndwr_selected_site USING (SiteCode)
+GROUP BY VisitID
 
 
 
@@ -1014,7 +1058,7 @@ FROM
 ######################################################################
 
 
-SELECT 
+ SELECT 
     PatientPK,
     SiteCode,
     PatientID,
@@ -1034,7 +1078,11 @@ SELECT
     Comments,
     BookingDate
 FROM
-    ndwr.ndwr_defaulter_tracing_extract;
+    ndwr.ndwr_defaulter_tracing_extract
+        JOIN
+    ndwr.ndwr_selected_site USING (SiteCode)
+GROUP BY VisitID
+ LIMIT 0;
 
 
 

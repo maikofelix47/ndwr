@@ -104,7 +104,7 @@ SELECT
     PatientPK,
     SiteCode,
     CASE
-      WHEN PatientID IS NULL THEN 'PatientPK'
+      WHEN PatientID IS NULL THEN PatientPK
       ELSE PatientID
     END AS 'PatientID',
     FacilityID,
@@ -117,6 +117,7 @@ SELECT
     NULL AS ReasonForDeath,
     NULL AS SpecificDeathReason,
     NULL AS 'ReEnrollmentDate',
+    EffectiveDiscontinuationDate,
     NULL AS DeathDate,
     TOVerified,
     TOVerifiedDate
@@ -493,6 +494,7 @@ FROM
         JOIN
     ndwr.ndwr_selected_site_2 USING (SiteCode)
 GROUP BY VisitID
+ LIMIT 0;
 
 
 

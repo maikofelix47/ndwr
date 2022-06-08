@@ -159,7 +159,29 @@ WHERE
 						 PREPARE s1 from @dyn_sql; 
                           EXECUTE s1; 
 					                DEALLOCATE PREPARE s1; 
-                                      
+                                    
+                                    
+			   drop temporary table if exists ndwr_OI_data;
+			SELECT CONCAT('Creating OI table ..');
+                create temporary table ndwr_OI_data(
+                SELECT 
+					o.person_id,
+					o.obs_id,
+					o.concept_id,
+					GROUP_CONCAT(DISTINCT cn.name
+						SEPARATOR '  |  ') AS `OI`,
+					o.encounter_id
+				FROM
+                    ndwr_all_patient_visits_extract_build_queue__0 q
+					join amrs.obs o on (q.person_id = o.person_id)
+						JOIN
+					amrs.concept_name cn ON (cn.concept_id = o.value_coded
+						AND cn.voided = 0 AND cn.locale_preferred = 1)
+				WHERE
+						o.concept_id = 6042
+						AND o.voided = 0
+				GROUP BY o.encounter_id , o.person_id
+                );
 						  
                 drop temporary table if exists ndwr_all_patient_visits_extract_interim;
 
@@ -268,10 +290,7 @@ SELECT CONCAT('Creating and populating interim table ..');
                               ELSE NULL
                            END AS 'FamilyPlanningMethod',
                            null as 'NoFPReason',
-                           case
-	                         when o.obs regexp "!!6042=" then replace(replace((substring_index(substring(o.obs,locate("!!6042=",o.obs)),'##',ROUND ((LENGTH(o.obs) - LENGTH( REPLACE ( o.obs, "!!6042=", "") ) ) / LENGTH("!!6042=") ))),"!!6042=",""),"!!","")
-	                         else null
-	                       end as 'OI',
+                           oi.OI as 'OI',
 	                       case
 	                         when o.obs regexp "!!6042=" then o.encounter_datetime
 	                         else null
@@ -302,11 +321,14 @@ SELECT CONCAT('Creating and populating interim table ..');
                              ELSE NULL
                            END AS 'ClinicalNotes',
                            null as 'DateCreated'
-                           FROM etl.flat_hiv_summary_v15b e 
-                           join ndwr_all_patient_visits_extract_build_queue__0 t3 on (t3.person_id = e.person_id)
+                           FROM 
+                           ndwr_all_patient_visits_extract_build_queue__0 t3 
+                           join etl.flat_hiv_summary_v15b e on (t3.person_id = e.person_id)
+                           left join ndwr_OI_data oi on (oi.encounter_id = e.encounter_id)
                            join ndwr.mfl_codes mfl on (mfl.location_id = e.location_id)
                            join ndwr.ndwr_all_patients_extract a on (a.PatientPK = e.person_id)
                            LEFT JOIN etl.flat_obs o on (o.encounter_id=e.encounter_id and e.person_id=o.person_id)
+                           WHERE e.encounter_type NOT IN (21)
                        );
                           
                 

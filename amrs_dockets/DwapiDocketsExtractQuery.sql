@@ -965,64 +965,64 @@ FROM
 
 
 SELECT 
-    PatientPK,
-    SiteCode,
-    PatientID,
-    Emr,
-    Project,
-    FacilityName,
-    FacilityId,
-    VisitID,
-    Covid19AssessmentDate,
+    c.PatientPK,
+    a.SiteCode,
+    a.PatientID,
+    a.Emr,
+    a.Project,
+    a.FacilityName,
+    a.FacilityId,
+    c.VisitID,
+    c.Covid19AssessmentDate,
     CASE
-      WHEN ReceivedCOVID19Vaccine = 1065 THEN 'Yes'
-      WHEN ReceivedCOVID19Vaccine = 1066 THEN 'No'
-      ELSE NULL
+        WHEN ReceivedCOVID19Vaccine = 1065 THEN 'Yes'
+        WHEN ReceivedCOVID19Vaccine = 1066 THEN 'No'
+        ELSE NULL
     END AS ReceivedCOVID19Vaccine,
     DateGivenFirstDose,
     CASE
-      WHEN FirstDoseVaccineAdministered = 11900 THEN 'ASTRAZENECA'
-      WHEN FirstDoseVaccineAdministered = 11901 THEN 'JOHNSON AND JOHNSON'
-      WHEN FirstDoseVaccineAdministered = 11902 THEN 'MODERNA'
-      WHEN FirstDoseVaccineAdministered = 11903 THEN 'PFIZER'
-      WHEN FirstDoseVaccineAdministered = 11904 THEN 'SPUTNIK'
-      WHEN FirstDoseVaccineAdministered = 11905 THEN 'SINOPHARM'
-      WHEN FirstDoseVaccineAdministered = 1067 THEN 'UNKNOWN'
-      ELSE NULL
+        WHEN FirstDoseVaccineAdministered = 11900 THEN 'ASTRAZENECA'
+        WHEN FirstDoseVaccineAdministered = 11901 THEN 'JOHNSON AND JOHNSON'
+        WHEN FirstDoseVaccineAdministered = 11902 THEN 'MODERNA'
+        WHEN FirstDoseVaccineAdministered = 11903 THEN 'PFIZER'
+        WHEN FirstDoseVaccineAdministered = 11904 THEN 'SPUTNIK'
+        WHEN FirstDoseVaccineAdministered = 11905 THEN 'SINOPHARM'
+        WHEN FirstDoseVaccineAdministered = 1067 THEN 'UNKNOWN'
+        ELSE NULL
     END AS FirstDoseVaccineAdministered,
     DateGivenSecondDose,
-     CASE
-      WHEN SecondDoseVaccineAdministered= 11900 THEN 'ASTRAZENECA'
-      WHEN SecondDoseVaccineAdministered = 11901 THEN 'JOHNSON AND JOHNSON'
-      WHEN SecondDoseVaccineAdministered = 11902 THEN 'MODERNA'
-      WHEN SecondDoseVaccineAdministered = 11903 THEN 'PFIZER'
-      WHEN SecondDoseVaccineAdministered = 11904 THEN 'SPUTNIK'
-      WHEN SecondDoseVaccineAdministered = 11905 THEN 'SINOPHARM'
-      WHEN SecondDoseVaccineAdministered = 1067 THEN 'UNKNOWN'
-      ELSE NULL
+    CASE
+        WHEN SecondDoseVaccineAdministered = 11900 THEN 'ASTRAZENECA'
+        WHEN SecondDoseVaccineAdministered = 11901 THEN 'JOHNSON AND JOHNSON'
+        WHEN SecondDoseVaccineAdministered = 11902 THEN 'MODERNA'
+        WHEN SecondDoseVaccineAdministered = 11903 THEN 'PFIZER'
+        WHEN SecondDoseVaccineAdministered = 11904 THEN 'SPUTNIK'
+        WHEN SecondDoseVaccineAdministered = 11905 THEN 'SINOPHARM'
+        WHEN SecondDoseVaccineAdministered = 1067 THEN 'UNKNOWN'
+        ELSE NULL
     END AS SecondDoseVaccineAdministered,
-   CASE
-     WHEN VaccinationStatus = 11907 THEN 'Partially Vaccinated'
-     WHEN VaccinationStatus = 2208 THEN 'Fully Vaccinated'
+    CASE
+        WHEN VaccinationStatus = 11907 THEN 'Partially Vaccinated'
+        WHEN VaccinationStatus = 2208 THEN 'Fully Vaccinated'
     END AS VaccinationStatus,
     CASE
-     WHEN VaccineVerification = 2300 THEN 'Yes'
-     ELSE NULL
+        WHEN VaccineVerification = 2300 THEN 'Yes'
+        ELSE NULL
     END AS VaccineVerification,
     VaccineVerificationSecondDose,
     CASE
-     WHEN  BoosterGiven = 1065 THEN 'Yes'
-	 WHEN  BoosterGiven = 1066 THEN 'No'
-    END AS  BoosterGiven,
+        WHEN BoosterGiven = 1065 THEN 'Yes'
+        WHEN BoosterGiven = 1066 THEN 'No'
+    END AS BoosterGiven,
     CASE
-      WHEN BoosterVaccine= 11900 THEN 'ASTRAZENECA'
-      WHEN BoosterVaccine = 11901 THEN 'JOHNSON AND JOHNSON'
-      WHEN BoosterVaccine = 11902 THEN 'MODERNA'
-      WHEN BoosterVaccine = 11903 THEN 'PFIZER'
-      WHEN BoosterVaccine = 11904 THEN 'SPUTNIK'
-      WHEN BoosterVaccine = 11905 THEN 'SINOPHARM'
-      WHEN BoosterVaccine = 1067 THEN 'UNKNOWN'
-      ELSE NULL
+        WHEN BoosterVaccine = 11900 THEN 'ASTRAZENECA'
+        WHEN BoosterVaccine = 11901 THEN 'JOHNSON AND JOHNSON'
+        WHEN BoosterVaccine = 11902 THEN 'MODERNA'
+        WHEN BoosterVaccine = 11903 THEN 'PFIZER'
+        WHEN BoosterVaccine = 11904 THEN 'SPUTNIK'
+        WHEN BoosterVaccine = 11905 THEN 'SINOPHARM'
+        WHEN BoosterVaccine = 1067 THEN 'UNKNOWN'
+        ELSE NULL
     END AS BoosterVaccine,
     BoosterDose,
     BoosterDoseDate,
@@ -1047,9 +1047,11 @@ SELECT
     TracingFinalOutcome,
     CauseOfDeath
 FROM
-    ndwr.ndwr_covid_extract
+    ndwr.ndwr_covid_extract c
         JOIN
-    ndwr.ndwr_selected_site USING (SiteCode)
+    ndwr.ndwr_all_patients_extract a ON (a.PatientPK = c.PatientPK)
+        JOIN
+    ndwr.ndwr_selected_site s ON (s.SiteCode = a.SiteCode)
 GROUP BY VisitID
 
 

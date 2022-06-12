@@ -1,5 +1,5 @@
 DELIMITER $$
-CREATE  PROCEDURE `build_NDWR_covid_extract`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN log BOOLEAN)
+CREATE PROCEDURE `build_NDWR_covid_extract`(IN query_type varchar(50),IN queue_number int, IN queue_size int, IN cycle_size int,IN log BOOLEAN)
 BEGIN
 
 					set @primary_table := "ndwr_covid_extract";
@@ -76,12 +76,12 @@ CREATE TABLE IF NOT EXISTS ndwr_covid_extract (
 							              DEALLOCATE PREPARE s1;  
 
 
-							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr_covid_extract_build_queue limit ', queue_size, ');'); 
+							              SET @dyn_sql=CONCAT('Create table if not exists ',@queue_table,' (select * from ndwr.ndwr_covid_extract_sync_queue limit ', queue_size, ');'); 
 							              PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1;  
 
-							              SET @dyn_sql=CONCAT('delete t1 from ndwr_covid_extract_build_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
+							              SET @dyn_sql=CONCAT('delete t1 from ndwr.ndwr_covid_extract_sync_queue t1 join ',@queue_table, ' t2 using (person_id);'); 
                                           PREPARE s1 from @dyn_sql; 
 							              EXECUTE s1; 
 							              DEALLOCATE PREPARE s1; 
@@ -586,7 +586,7 @@ create temporary table ndwr_covid_immunization_booster_screening(
     SELECT 
      q.person_id as PatientPK,
      mfl.mfl_code AS SiteCode,
-     q.person_id as PatientID,
+     t1.PatientID,
     'AMRS' AS Emr,
     'Ampath Plus' AS 'Project',
      mfl.Facility AS FacilityName,
@@ -627,6 +627,7 @@ create temporary table ndwr_covid_immunization_booster_screening(
      NULL AS CauseOfDeath
     FROM
     ndwr.ndwr_covid_extract_build_queue__0 q
+    join ndwr.ndwr_all_patients_extract t1 on (t1.PatientPK = q.person_id)
     join ndwr.ndwr_covid_encounters_temp t on (t.person_id = q.person_id)
     left join ndwr_vaccination_encounter_summary v on (v.person_id = q.person_id AND v.encounter_id = t.encounter_id)
     left join ndwr_booster_encounter_summary b on (b.person_id = q.person_id AND b.encounter_id = t.encounter_id)

@@ -49,6 +49,16 @@ replace into ndwr.ndwr_covid_extract_build_queue(
 );
 CALL `ndwr`.`build_NDWR_covid_extract`("build",1,1,1,true);
 ##############################################
+
+replace into ndwr_defaulter_tracing_extract_build_queue (
+    select distinct patient_id from amrs.encounter e where encounter_type in (21) 
+    and date_created >= '2022-04-04 00:00:00'
+    and voided = 0
+);
+
+CALL `ndwr`.`build_NDWR_defaulter_tracing_extract`("build",1,1,1,true);
+
+##############################################
 replace into ndwr.ndwr_patient_depression_screening_build_queue(
 select distinct 
 o.person_id from amrs.obs o where

@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS ndwr.ndwr_gbv_screening (
     `Emr` VARCHAR(50) NULL,
     `Project` VARCHAR(50) NULL,
     `FacilityName` VARCHAR(100) NULL,
-    `PartnerPersonID` INT NULL,
     `VisitID` INT NULL,
     `VisitDate` DATETIME NOT NULL,
     `IPV` BOOLEAN NULL,
@@ -112,46 +111,46 @@ WHERE
                           drop temporary table if exists ndwr_gbv_screening_interim;
                           create temporary table ndwr_gbv_screening_interim(
                               SELECT
-                              c.PatientPK,
-                              c.SiteCode,
-                              c.PatientID,
-                              c.Emr,
-                              c.Project,
-                              c.FacilityName,
-                              c.PartnerPersonID,
-                              c.VisitID,
-                              c.VisitDate,
+                              o.person_id AS 'PatientPK',
+							  mfl.mfl_code as 'SiteCode',
+                              a.PatientID AS 'PatientID',
+                              a.Emr,
+                              a.Project,
+							  mfl.Facility AS 'FacilityName',
+                              o.encounter_id as VisitID,
+                              o.encounter_datetime as VisitDate,
                               CASE
-                                WHEN c.IpvScreeningOutcome IN (9303,1789) THEN 1
-                                WHEN c.IpvScreeningOutcome IN (1107) then 0
+                                WHEN o.obs REGEXP '!!11866=1065' THEN 1
+                                WHEN o.obs REGEXP '!!11866=1066' THEN 0
                                 ELSE NULL
                               END AS 'IPV',
                               CASE
-                                WHEN c.IpvScreeningOutcome IN (1789) AND c.RelationshipWithPatient in (970,971,972,1565,1669,1670,7246,105) THEN 1
-                                WHEN c.IpvScreeningOutcome IN (1107) THEN 0
+                                WHEN o.obs REGEXP '!!11565=1065' THEN 1
+                                WHEN o.obs REGEXP '!!11565=1066' THEN 0
                                 ELSE NULL
                               END AS 'PhysicalIPV',
                               CASE
-                                WHEN c.IpvScreeningOutcome IN (7020) AND c.RelationshipWithPatient in (970,971,972,1565,1669,1670,7246,105) THEN 1
-                                WHEN c.IpvScreeningOutcome IN (1107) THEN 0
+                                WHEN o.obs REGEXP '!!11865=1065' THEN 1
+                                WHEN o.obs REGEXP '!!11865=1066' THEN 0
                                 ELSE NULL
                               END AS 'EmotionalIPV',
                               CASE
-                                WHEN c.IpvScreeningOutcome IN (9303) AND c.RelationshipWithPatient in (970,971,972,1565,1669,1670,7246,105) THEN 1
-                                WHEN c.IpvScreeningOutcome IN (1107) THEN 0
+								WHEN o.obs REGEXP '!!9303=1065' THEN 1
+                                WHEN o.obs REGEXP '!!9303=1066' THEN 0
                                 ELSE NULL
                               END AS 'SexualIPV',
                               CASE
-                                 WHEN c.IpvScreeningOutcome IN (1789,7020,9303) AND (c.RelationshipWithPatient IN (5622) || c.RelationshipWithPatient IS NULL) THEN 1
-                                 WHEN c.IpvScreeningOutcome IN (1107) THEN 0
-                                 ELSE NULL
+                                WHEN o.obs REGEXP '!!11867=1065' THEN 1
+                                WHEN o.obs REGEXP '!!11867=1066' THEN 0
+								ELSE NULL
                               END AS 'IPVRelationship',
                               NULL AS 'DateCreated'
                               FROM
                                ndwr.ndwr_gbv_screening_build_queue__0 q
-                              join ndwr.ndwr_patient_contact_listing c on (c.PatientPK = q.person_id)
-
-
+                              join etl.flat_obs o on (o.person_id = q.person_id)
+                              join ndwr.ndwr_all_patients_extract a on (a.PatientPK = o.person_id)
+                              join ndwr.mfl_codes mfl on (mfl.location_id = o.location_id)
+                              where encounter_type in (1,2)
                           );
                           
                          

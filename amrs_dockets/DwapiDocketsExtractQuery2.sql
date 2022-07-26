@@ -805,6 +805,8 @@ FROM
     PatientPK as 'patientPK',
     SiteCode as 'siteCode',
     PatientID as 'patientID',
+    Emr,
+    Project,
     FacilityName as 'FacilityName',
     VisitID as 'visitID',
     VisitDate as 'visitDate',
@@ -838,8 +840,7 @@ FROM
     ndwr.ndwr_gbv_screening
         JOIN
     ndwr.ndwr_selected_site_2 USING (SiteCode)
-    group by VisitID
-    LIMIT 0;
+    group by VisitID;
     
 
 =================================================

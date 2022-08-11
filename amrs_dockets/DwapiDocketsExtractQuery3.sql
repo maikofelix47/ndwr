@@ -472,15 +472,14 @@ GROUP BY VisitID;
 
 
   ===========================================
-
-    SELECT 
+SELECT 
     PatientPK,
     SiteCode,
     PatientID,
     Emr,
     Project,
     FacilityName,
-    FacilityId,
+    SiteCode as FacilityId,
     VisitID,
     VisitDate,
     EncounterId,
@@ -496,8 +495,7 @@ FROM
     ndwr.ndwr_defaulter_tracing_extract
         JOIN
     ndwr.ndwr_selected_site_3 USING (SiteCode)
-GROUP BY VisitID
- LIMIT 0;
+GROUP BY VisitID;
 
 
 
@@ -806,9 +804,9 @@ SELECT
     PatientPK as 'patientPK',
     SiteCode as 'siteCode',
     PatientID as 'patientID',
-    Emr,
-    Project,
     FacilityName as 'FacilityName',
+    Emr,
+   Project,
     VisitID as 'visitID',
     VisitDate as 'visitDate',
     CASE

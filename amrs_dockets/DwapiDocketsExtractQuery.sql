@@ -1068,7 +1068,7 @@ GROUP BY VisitID
     Emr,
     Project,
     FacilityName,
-    FacilityId,
+    SiteCode as FacilityId,
     VisitID,
     VisitDate,
     EncounterId,
@@ -1084,8 +1084,7 @@ FROM
     ndwr.ndwr_defaulter_tracing_extract
         JOIN
     ndwr.ndwr_selected_site USING (SiteCode)
-GROUP BY VisitID
- LIMIT 0;
+GROUP BY VisitID;
 
 
 
